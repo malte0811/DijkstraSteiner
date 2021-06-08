@@ -1,0 +1,10 @@
+Optimum solutions of the given instances are:
+
+Instance	Opt
+
+i01		971
+i02		1861
+i03		2775
+i04		3504
+i05		4779
+i06		5655
