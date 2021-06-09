@@ -8,23 +8,13 @@ int main(int argc, char** argv) {
     if (argc != 2) {
         return 1;
     }
-    //TODO make safe!
     std::ifstream in(argv[1]);
-    std::size_t num_terminals;
-    in >> num_terminals;
-    //TODO check num terminals
-    assert(in);
-    std::vector<Point> terminals;
-    for (std::size_t index = 0; index < num_terminals; ++index) {
-        Point new_point;
-        for (std::size_t dim = 0; dim < num_dimensions; ++dim) {
-            in >> new_point.at(dim);
-            assert(in);
-        }
-        terminals.push_back(new_point);
+    auto const optional_grid = HananGrid::read_from_stream(in);
+    in.close();
+    if (not optional_grid.has_value()) {
+        return 1;
     }
-    HananGrid grid(terminals);;
-    DijkstraSteiner<BBFutureCost> alg(grid);
+    DijkstraSteiner<BBFutureCost> alg(optional_grid.value());
     auto const cost = alg.get_optimum_cost();
     std::cout << cost << '\n';
 }

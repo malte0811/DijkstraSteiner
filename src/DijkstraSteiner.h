@@ -5,6 +5,7 @@
 #include "LabelMap.h"
 #include "HananGrid.h"
 #include <bits/c++config.h>
+#include <iostream>
 #include <limits>
 #include <stdexcept>
 #include <utility>
@@ -25,20 +26,6 @@ concept SubsetConsumer = requires(T a, TerminalSubset l) {
     a(l);
 };
 
-namespace std {
-    template<>
-    struct hash<Label> {
-        std::size_t operator()(Label const& s) const noexcept {
-            std::size_t result = 0;
-            for (std::size_t i = 0; i < num_dimensions; ++i) {
-                result = result * 31 + s.first.indices.at(i);
-            }
-            result = result * 31 + std::hash<TerminalSubset>{}(s.second);
-            return result;
-        }
-    };
-}
-
 template<LowerBound LB>
 class DijkstraSteiner {
 public:
@@ -58,11 +45,16 @@ private:
         }
     };
 
+    void init();
+
+    Label get_full_tree_label() const;
+
     void handle_candidate(Label const& label, Cost const& cost_to_label);
 
     template<SubsetConsumer Consumer>
-    void for_each_fixed_disjoint_sink_set(Label const& disjoint_to, Consumer out) const;
+    void for_each_disjoint_sink_set(Label const& disjoint_to, Consumer out) const;
 
+    bool _started = false;
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
     LB _future_cost;
@@ -70,51 +62,65 @@ private:
 };
 
 template<LowerBound LB>
-Cost DijkstraSteiner<LB>::get_optimum_cost() {
-    auto const non_root_terminals = [&] {
-        auto temp = _grid.get_terminals();
-        temp.pop_back();
-        return temp;
-    }();
-    auto const root_terminal = _grid.get_terminals().back();
-    for (std::size_t terminal_id = 0; terminal_id < non_root_terminals.size(); ++terminal_id) {
+void DijkstraSteiner<LB>::init() {
+    assert(not _started);
+    _started = true;
+    auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
+    for (std::size_t terminal_id = 0; terminal_id < num_non_root_terminals; ++terminal_id) {
         TerminalSubset terminals;
         terminals.set(terminal_id);
-        handle_candidate({non_root_terminals.at(terminal_id), terminals}, 0);
+        handle_candidate({_grid.get_terminals().at(terminal_id), terminals}, 0);
     }
-    auto const stop_at_label = [&] {
-        TerminalSubset terminals;
-        for (std::size_t terminal_id = 0; terminal_id < non_root_terminals.size(); ++terminal_id) {
-            terminals.set(terminal_id);
-        }
-        return Label{root_terminal, terminals};
-    }();
+}
+
+template<LowerBound LB>
+Label DijkstraSteiner<LB>::get_full_tree_label() const {
+    auto const root_terminal = _grid.get_terminals().back();
+    auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
+    TerminalSubset terminals;
+    for (std::size_t terminal_id = 0; terminal_id < num_non_root_terminals; ++terminal_id) {
+        terminals.set(terminal_id);
+    }
+    return Label{root_terminal, terminals};
+}
+
+template<LowerBound LB>
+Cost DijkstraSteiner<LB>::get_optimum_cost() {
+    init();
+    auto const stop_at_label = get_full_tree_label();
     while (not _heap.empty()) {
-        auto const [cost_with_lb, next_label] = _heap.top();
+        auto const next_heap_element = _heap.top();
         _heap.pop();
+        // Structured binding would be nice here, but that doesn't work nicely with
+        // lambda captures
+        auto const next_label = next_heap_element.label;
         if (next_label == stop_at_label) {
             // future cost is 0 here
-            return cost_with_lb;
+            return next_heap_element.cost_lower_bound;
         }
-        auto[cost, fixed]  = _node_states.at(next_label.second, next_label.first);
-        if (fixed) {
+        auto const node_state  = _node_states.at(next_label.second, next_label.first);
+        // ditto
+        auto const cost_here = std::get<0>(node_state).get();
+        auto is_fixed = std::get<1>(node_state);
+        if (is_fixed) {
             continue;
         }
-        fixed = true;
-        _grid.for_each_neighbor(next_label.first, [&, next_label = next_label, cost = cost](GridPoint neighbor, Cost edge_cost) {
+        is_fixed = true;
+        _grid.for_each_neighbor(next_label.first, [&](GridPoint neighbor, Cost edge_cost) {
             Label neighbor_label{neighbor, next_label.second};
-            auto const candidate_cost = edge_cost + cost;
-            handle_candidate(neighbor_label, candidate_cost);
+            handle_candidate(neighbor_label, edge_cost + cost_here);
         });
-        for_each_fixed_disjoint_sink_set(next_label, [&, next_label = next_label, cost = cost](TerminalSubset const& other_set) {
+        for_each_disjoint_sink_set(next_label, [&](TerminalSubset const& other_set) {
             assert((other_set & next_label.second).count() == 0);
-            Label union_label{next_label.first, next_label.second | other_set};
-            auto const candidate_cost = std::get<0>(_node_states.at(other_set, next_label.first)) + cost;
-            handle_candidate(union_label, candidate_cost);
+            auto const [other_cost, other_fixed] = _node_states.at(other_set, next_label.first);
+            if (other_fixed) {
+                Label union_label{next_label.first, next_label.second | other_set};
+                handle_candidate(union_label, other_cost + cost_here);
+            }
         });
     }
-    //TODO should never happen!
-    throw std::runtime_error("No tree found???");
+    std::cerr << "Failed to find a tree, returning cost 0. This should not be possible!\n";
+    return 0;
 }
 
 template<LowerBound LB>
@@ -129,7 +135,7 @@ void DijkstraSteiner<LB>::handle_candidate(Label const& label, Cost const& cost_
 
 template<LowerBound LB>
 template<SubsetConsumer Consumer>
-void DijkstraSteiner<LB>::for_each_fixed_disjoint_sink_set(Label const& base_label, Consumer const out) const {
+void DijkstraSteiner<LB>::for_each_disjoint_sink_set(Label const& base_label, Consumer const out) const {
     std::array<TerminalIndex, max_num_terminals - 1> disjoint_indices;
     auto const total_num_sinks = _grid.get_terminals().size() - 1;
     TerminalIndex next_disjoint_index = 0;
@@ -148,11 +154,9 @@ void DijkstraSteiner<LB>::for_each_fixed_disjoint_sink_set(Label const& base_lab
             carry_out = disjoint_set.test(index);
             disjoint_set.flip(index);
         }
+        // Do not call for empty set, as specified in the algorithm
         if (not carry_out) {
-            Label resulting_label{base_label.first, disjoint_set};
-            if (std::get<bool>(_node_states.at(disjoint_set, base_label.first))) {
-                out(resulting_label.second);
-            }
+            out(disjoint_set);
         }
     } while (not carry_out);
 }

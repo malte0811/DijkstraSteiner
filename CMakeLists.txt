@@ -11,6 +11,7 @@ add_executable(DijkstraSteiner
     src/DijkstraSteiner.h
     src/LabelMap.h
     src/TypeDefs.h
+    src/GridPoint.h
     src/future_costs/NullFutureCost.h
     src/future_costs/BBFutureCost.h
 )

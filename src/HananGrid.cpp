@@ -1,5 +1,7 @@
 #include "HananGrid.h"
 #include <algorithm>
+#include <iostream>
+#include <istream>
 #include <stdexcept>
 #include <utility>
 #include <tuple>
@@ -11,9 +13,11 @@ AxisGrid::AxisGrid(std::vector<Point> const& points, std::size_t const dimension
     for (auto const& point : points) {
         sorted_positions.push_back(point.at(dimension));
     }
+
     std::sort(sorted_positions.begin(), sorted_positions.end());
     auto const last = std::unique(sorted_positions.begin(), sorted_positions.end());
     sorted_positions.erase(last, sorted_positions.end());
+
     differences.reserve(sorted_positions.size() - 1);
     for (std::size_t i = 0; i + 1 < sorted_positions.size(); ++i) {
         differences.push_back(sorted_positions.at(i + 1) - sorted_positions.at(i));
@@ -31,6 +35,43 @@ TerminalIndex AxisGrid::index_for_coord(Coord const pos) const {
 
 Coord AxisGrid::coord_for_index(TerminalIndex index) const {
     return sorted_positions.at(index);
+}
+
+std::optional<Point> read_point(std::istream& in) {
+    Point result;
+    for (std::size_t i = 0; i < num_dimensions; ++i) {
+        in >> result.at(i);
+        if (not in) {
+            return std::nullopt;
+        }
+    }
+    return result;
+}
+
+std::optional<HananGrid> HananGrid::read_from_stream(std::istream& in) {
+    // Can't use TerminalIndex=uint8_t=unsigned char here, otherwise C++ will
+    // just read the first char and give us that
+    std::size_t num_terminals;
+    in >> num_terminals;
+    if (not in) {
+        std::cerr << "Failed to read number of terminals\n";
+        return std::nullopt;
+    }
+    if (num_terminals > max_num_terminals) {
+        std::cerr << "Instance specifies " << num_terminals
+            << ", but only " << max_num_terminals << " are supported\n";
+        return std::nullopt;
+    }
+    std::vector<Point> points;
+    for (std::size_t terminal = 0; terminal < num_terminals; ++terminal) {
+        if (auto const next_point = read_point(in)) {
+            points.push_back(next_point.value());
+        } else {
+            std::cerr << "Failed to read terminal " << terminal << '\n';
+            return std::nullopt;
+        }
+    }
+    return HananGrid(points);
 }
 
 HananGrid::HananGrid(std::vector<Point> const& points) {

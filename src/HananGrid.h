@@ -2,49 +2,19 @@
 #define HANAN_GRID
 
 #include "TypeDefs.h"
+#include "GridPoint.h"
 #include <vector>
+#include <optional>
 
-struct GridPoint {
-    std::array<TerminalIndex, num_dimensions> indices;
-
-    GridPoint add(std::size_t coordinate, TerminalIndex offset) const {
-        auto new_indices = indices;
-        new_indices.at(coordinate) += offset;
-        return { new_indices };
-    }
-
-    GridPoint subtract(std::size_t coordinate, TerminalIndex offset) const {
-        auto new_indices = indices;
-        new_indices.at(coordinate) -= offset;
-        return { new_indices };
-    }
-
-    bool operator==(GridPoint const& other) const {
-        return indices == other.indices;
-    }
-
-    GridPoint min(GridPoint const& other) const {
-        GridPoint result;
-        for (std::size_t i = 0; i < num_dimensions; ++i) {
-            result.indices.at(i) = std::min(indices.at(i), other.indices.at(i));
-        }
-        return result;
-    }
-
-    GridPoint max(GridPoint const& other) const {
-        GridPoint result;
-        for (std::size_t i = 0; i < num_dimensions; ++i) {
-            result.indices.at(i) = std::max(indices.at(i), other.indices.at(i));
-        }
-        return result;
-    }
+template<class V>
+concept NeighborVisitor = requires(V v, GridPoint neighbor, Cost cost) {
+    v(neighbor, cost);
 };
 
-template<class T>
-concept NeighborVisitor = requires(T a, GridPoint neighbor, Cost cost) {
-    a(neighbor, cost);
-};
-
+/**
+ * Stores a single axis of the Hana grid. This is not intended for standalone use,
+ * but as a part of HananGrid
+ */
 class AxisGrid {
 public:
     AxisGrid(std::vector<Point> const& points, std::size_t dimension);
@@ -68,6 +38,8 @@ private:
 
 class HananGrid {
 public:
+    static std::optional<HananGrid> read_from_stream(std::istream& in);
+
     HananGrid(std::vector<Point> const& points);
 
     template<NeighborVisitor Visitor>
