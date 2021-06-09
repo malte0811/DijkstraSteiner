@@ -15,9 +15,9 @@
 using Label = std::pair<GridPoint, TerminalSubset>;
 
 template<typename T>
-concept LowerBound = requires(T a, Label l) {
+concept LowerBound = requires(T a, Label l, HananGrid grid) {
     // TODO pass Hanan grid as well?
-    { a(l) } -> convertible_to<Cost>;
+    { a(l, grid) } -> convertible_to<Cost>;
 };
 
 template<typename T>
@@ -123,7 +123,7 @@ void DijkstraSteiner<LB>::handle_candidate(Label const& label, Cost const& cost_
     if (cost > cost_to_label) {
         assert(not fixed);
         cost.get() = cost_to_label;
-        _heap.push(HeapEntry{cost_to_label + _future_cost(label), label});
+        _heap.push(HeapEntry{cost_to_label + _future_cost(label, _grid), label});
     }
 }
 

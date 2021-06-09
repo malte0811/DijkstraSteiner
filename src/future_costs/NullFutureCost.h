@@ -4,7 +4,7 @@
 #include "../DijkstraSteiner.h"
 
 struct NullFutureCost {
-    Cost operator()(Label const& /*label*/) {
+    Cost operator()(Label const& /*label*/, HananGrid const& /*grid*/) {
         return 0;
     }
 };

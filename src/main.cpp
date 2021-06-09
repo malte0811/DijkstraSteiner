@@ -1,6 +1,7 @@
 #include <iostream>
 #include "DijkstraSteiner.h"
 #include "future_costs/NullFutureCost.h"
+#include "future_costs/BBFutureCost.h"
 #include <fstream>
 
 int main(int argc, char** argv) {
@@ -23,7 +24,7 @@ int main(int argc, char** argv) {
         terminals.push_back(new_point);
     }
     HananGrid grid(terminals);;
-    DijkstraSteiner<NullFutureCost> alg(grid);
+    DijkstraSteiner<BBFutureCost> alg(grid);
     auto const cost = alg.get_optimum_cost();
     std::cout << cost << '\n';
 }
