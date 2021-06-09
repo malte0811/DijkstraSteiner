@@ -1,10 +1,12 @@
 #ifndef BB_FUTURECOST_H
 #define BB_FUTURECOST_H
 
-#include "../DijkstraSteiner.h"
+#include "FutureCost.h"
 
 struct BBFutureCost {
-    Cost operator()(Label const& label, HananGrid const& grid) {
+    HananGrid const& grid;
+
+    Cost operator()(Label const& label) const {
         auto grid_min = label.first;
         auto grid_max = label.first;
         auto const& terminals = grid.get_terminals();

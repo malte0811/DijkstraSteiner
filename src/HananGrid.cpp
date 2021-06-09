@@ -33,10 +33,6 @@ TerminalIndex AxisGrid::index_for_coord(Coord const pos) const {
     throw std::runtime_error("Invalid coordinate?");
 }
 
-Coord AxisGrid::coord_for_index(TerminalIndex index) const {
-    return sorted_positions.at(index);
-}
-
 std::optional<Point> read_point(std::istream& in) {
     Point result;
     for (std::size_t i = 0; i < num_dimensions; ++i) {
@@ -87,27 +83,10 @@ HananGrid::HananGrid(std::vector<Point> const& points) {
     }
 }
 
-VertexIndex HananGrid::get_index(GridPoint const& point) const {
-    VertexIndex result = 0;
-    for (std::size_t i = 0; i < num_dimensions; ++i) {
-        result *= _axis_grids.at(i).size();
-        result += point.indices.at(i);
-    }
-    return result;
-}
-
 VertexIndex HananGrid::num_vertices() const {
     VertexIndex result = 1;
     for (auto const& axis : _axis_grids) {
         result *= axis.size();
-    }
-    return result;
-}
-
-Point HananGrid::to_coordinates(GridPoint const& grid_point) const {
-    Point result;
-    for (std::size_t axis = 0; axis < num_dimensions; ++axis) {
-        result.at(axis) = _axis_grids.at(axis).coord_for_index(grid_point.indices.at(axis));
     }
     return result;
 }

@@ -77,4 +77,25 @@ void HananGrid::for_each_neighbor(GridPoint const here, Visitor const& visitor) 
     }
 }
 
+inline VertexIndex HananGrid::get_index(GridPoint const& point) const {
+    VertexIndex result = 0;
+    for (std::size_t i = 0; i < num_dimensions; ++i) {
+        result *= _axis_grids.at(i).size();
+        result += point.indices.at(i);
+    }
+    return result;
+}
+
+inline Point HananGrid::to_coordinates(GridPoint const& grid_point) const {
+    Point result;
+    for (std::size_t axis = 0; axis < num_dimensions; ++axis) {
+        result.at(axis) = _axis_grids.at(axis).coord_for_index(grid_point.indices.at(axis));
+    }
+    return result;
+}
+
+inline Coord AxisGrid::coord_for_index(TerminalIndex index) const {
+    return sorted_positions.at(index);
+}
+
 #endif

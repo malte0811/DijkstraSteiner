@@ -4,7 +4,7 @@
 #include "TypeDefs.h"
 #include "LabelMap.h"
 #include "HananGrid.h"
-#include <bits/c++config.h>
+#include "future_costs/FutureCost.h"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -13,24 +13,17 @@
 #include <unordered_map>
 #include <cassert>
 
-using Label = std::pair<GridPoint, TerminalSubset>;
-
-template<typename T>
-concept LowerBound = requires(T a, Label l, HananGrid grid) {
-    // TODO pass Hanan grid as well?
-    { a(l, grid) } -> convertible_to<Cost>;
-};
-
 template<typename T>
 concept SubsetConsumer = requires(T a, TerminalSubset l) {
     a(l);
 };
 
-template<LowerBound LB>
+template<FutureCost FC>
 class DijkstraSteiner {
 public:
     DijkstraSteiner(HananGrid grid):
         _grid(std::move(grid)),
+        _future_cost{_grid},
         _node_states(_grid, std::numeric_limits<Cost>::max(), false)
     {}
 
@@ -57,12 +50,12 @@ private:
     bool _started = false;
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
-    LB _future_cost;
+    FC _future_cost;
     LabelMap<Cost, bool> _node_states;
 };
 
-template<LowerBound LB>
-void DijkstraSteiner<LB>::init() {
+template<FutureCost FC>
+void DijkstraSteiner<FC>::init() {
     assert(not _started);
     _started = true;
     auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
@@ -73,8 +66,8 @@ void DijkstraSteiner<LB>::init() {
     }
 }
 
-template<LowerBound LB>
-Label DijkstraSteiner<LB>::get_full_tree_label() const {
+template<FutureCost FC>
+Label DijkstraSteiner<FC>::get_full_tree_label() const {
     auto const root_terminal = _grid.get_terminals().back();
     auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
     TerminalSubset terminals;
@@ -84,8 +77,8 @@ Label DijkstraSteiner<LB>::get_full_tree_label() const {
     return Label{root_terminal, terminals};
 }
 
-template<LowerBound LB>
-Cost DijkstraSteiner<LB>::get_optimum_cost() {
+template<FutureCost FC>
+Cost DijkstraSteiner<FC>::get_optimum_cost() {
     init();
     auto const stop_at_label = get_full_tree_label();
     while (not _heap.empty()) {
@@ -123,19 +116,18 @@ Cost DijkstraSteiner<LB>::get_optimum_cost() {
     return 0;
 }
 
-template<LowerBound LB>
-void DijkstraSteiner<LB>::handle_candidate(Label const& label, Cost const& cost_to_label) {
+template<FutureCost FC>
+void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_to_label) {
     auto [cost, fixed] = _node_states.at(label.second, label.first);
-    if (cost > cost_to_label) {
-        assert(not fixed);
+    if (not fixed and cost > cost_to_label) {
         cost.get() = cost_to_label;
-        _heap.push(HeapEntry{cost_to_label + _future_cost(label, _grid), label});
+        _heap.push(HeapEntry{cost_to_label + _future_cost(label), label});
     }
 }
 
-template<LowerBound LB>
+template<FutureCost FC>
 template<SubsetConsumer Consumer>
-void DijkstraSteiner<LB>::for_each_disjoint_sink_set(Label const& base_label, Consumer const out) const {
+void DijkstraSteiner<FC>::for_each_disjoint_sink_set(Label const& base_label, Consumer const out) const {
     std::array<TerminalIndex, max_num_terminals - 1> disjoint_indices;
     auto const total_num_sinks = _grid.get_terminals().size() - 1;
     TerminalIndex next_disjoint_index = 0;

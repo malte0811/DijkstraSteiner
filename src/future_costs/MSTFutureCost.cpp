@@ -1,0 +1,114 @@
+#include "MSTFutureCost.h"
+#include <limits>
+#include <cassert>
+
+auto constexpr invalid_cost = std::numeric_limits<Cost>::max();
+
+MSTFutureCost::MSTFutureCost(HananGrid const& grid):
+    _grid(grid),
+    _known_tree_costs(1 << (grid.get_terminals().size() - 1), invalid_cost) {
+    auto const num_terminals = grid.get_terminals().size();
+    for (TerminalIndex index_a = 0; index_a < num_terminals; ++index_a) {
+        _costs.at(index_a) = get_distances_to_terminals(grid.get_terminals().at(index_a));
+    }
+}
+
+Cost MSTFutureCost::operator()(Label const& label) const {
+    // Compute edges to add to form a 1-tree with label.first as "1"
+    Cost min_edge = invalid_cost;
+    Cost second_min_edge = invalid_cost;
+    auto const extra_point = _grid.to_coordinates(label.first);
+    for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
+        if (not label.second.test(i)) {
+            auto const& terminal = _grid.get_terminals().at(i);
+            if (terminal.indices == label.first.indices) {
+                min_edge = second_min_edge = 0;
+                break;
+            }
+            auto const cost = get_distance(terminal, extra_point);
+            if (cost <= min_edge) {
+                second_min_edge = min_edge;
+                min_edge = cost;
+            } else if (cost < second_min_edge) {
+                second_min_edge = cost;
+            }
+        }
+    }
+    auto const tree_cost = get_tree_cost(label.second);
+    auto const total_one_tree_cost = [&] {
+        if (second_min_edge != invalid_cost) {
+            return tree_cost + min_edge + second_min_edge;
+        } else if (min_edge != invalid_cost) {
+            return tree_cost + min_edge;
+        } else {
+            return tree_cost;
+        }
+    }();
+    return (total_one_tree_cost + 1) / 2;
+}
+
+Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
+    if (_known_tree_costs.at(label.to_ulong()) != invalid_cost) {
+        return _known_tree_costs.at(label.to_ulong());
+    }
+    std::array<TerminalIndex, max_num_terminals> terminals_to_consider;
+    std::size_t num_terminals = 0;
+    for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
+        if (not label.test(i)) {
+            terminals_to_consider.at(num_terminals) = i;
+            ++num_terminals;
+        }
+    }
+    struct HeapEntry {
+        Cost edge_cost;
+        TerminalIndex connecting_terminal;
+
+        bool operator>(HeapEntry const& other) const {
+            return edge_cost > other.edge_cost;
+        }
+    };
+    MinHeap<HeapEntry> heap;
+    heap.push({0, terminals_to_consider.front()});
+    std::array<bool, max_num_terminals> is_connected;
+    std::fill(is_connected.begin(), is_connected.end(), false);
+    std::size_t num_connected = 0;
+    Cost total_cost = 0;
+    while (num_connected < num_terminals) {
+        assert(not heap.empty());
+        auto const[cost, new_terminal] = heap.top();
+        heap.pop();
+        if (not is_connected.at(new_terminal)) {
+            is_connected.at(new_terminal) = true;
+            total_cost += cost;
+            ++num_connected;
+            for (std::size_t i = 0; i < num_terminals; ++i) {
+                auto const other_terminal_id = terminals_to_consider.at(i);
+                if (not is_connected.at(other_terminal_id)) {
+                    heap.push({_costs.at(new_terminal).at(other_terminal_id), other_terminal_id});
+                }
+            }
+        }
+    }
+    _known_tree_costs.at(label.to_ulong()) = total_cost;
+    return total_cost;
+}
+
+auto MSTFutureCost::get_distances_to_terminals(GridPoint from) const -> SingleVertexDistances {
+    SingleVertexDistances result;
+    auto const center = _grid.to_coordinates(from);
+    for (TerminalIndex other = 0; other < _grid.get_terminals().size(); ++other) {
+        result.at(other) = get_distance(_grid.get_terminals().at(other), center);
+    }
+    return result;
+}
+
+Cost MSTFutureCost::get_distance(GridPoint const& grid_point_a, Point const& point_b) const {
+    auto const point_a = _grid.to_coordinates(grid_point_a);
+    Cost terminal_distance = 0;
+    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
+        terminal_distance += std::abs(
+                static_cast<int>(point_a.at(dimension)) - static_cast<int>(point_b.at(dimension))
+        );
+    }
+    return terminal_distance;
+}
