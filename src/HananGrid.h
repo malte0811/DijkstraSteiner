@@ -52,6 +52,23 @@ public:
         return _terminals;
     }
 
+    VertexIndex num_vertices() const {
+        VertexIndex result = 1;
+        for (auto const& axis : _axis_grids) {
+            result *= 1 + axis.differences.size();
+        }
+        return result;
+    }
+
+    VertexIndex get_index(GridPoint const& point) const {
+        VertexIndex result = 0;
+        for (std::size_t i = 0; i < num_dimensions; ++i) {
+            result *= _axis_grids.at(i).differences.size() + 1;
+            result += point.indices.at(i);
+        }
+        return result;
+    }
+
 private:
     std::array<AxisGrid, num_dimensions> _axis_grids;
     std::vector<GridPoint> _terminals;

@@ -2,8 +2,11 @@
 #define DIJKSTRA_STEINER
 
 #include "TypeDefs.h"
+#include "LabelMap.h"
 #include "HananGrid.h"
 #include <bits/c++config.h>
+#include <limits>
+#include <stdexcept>
 #include <utility>
 #include <queue>
 #include <unordered_map>
@@ -39,7 +42,10 @@ namespace std {
 template<LowerBound LB>
 class DijkstraSteiner {
 public:
-    DijkstraSteiner(HananGrid grid): _grid(std::move(grid)) {}
+    DijkstraSteiner(HananGrid grid):
+        _grid(std::move(grid)),
+        _node_states(_grid, std::numeric_limits<Cost>::max(), false)
+    {}
 
     Cost get_optimum_cost();
 private:
@@ -60,8 +66,7 @@ private:
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
     LB _future_cost;
-    //TODO FastMap equivalent?
-    std::unordered_map<Label, std::pair<bool, Cost>> _node_states;
+    LabelMap<Cost, bool> _node_states;
 };
 
 template<LowerBound LB>
@@ -85,40 +90,39 @@ Cost DijkstraSteiner<LB>::get_optimum_cost() {
         return Label{root_terminal, terminals};
     }();
     while (not _heap.empty()) {
-        auto const [cost_with_lb, next] = _heap.top();
+        auto const [cost_with_lb, next_label] = _heap.top();
         _heap.pop();
-        if (next == stop_at_label) {
+        if (next_label == stop_at_label) {
             // future cost is 0 here
             return cost_with_lb;
         }
-        auto& node_status = _node_states.at(next);
-        if (node_status.first) {
+        auto[cost, fixed]  = _node_states.at(next_label.second, next_label.first);
+        if (fixed) {
             continue;
         }
-        node_status.first = true;
-        _grid.for_each_neighbor(next.first, [&, next = next](GridPoint neighbor, Cost edge_cost) {
-            Label neighbor_label{neighbor, next.second};
-            auto const candidate_cost = edge_cost + node_status.second;
+        fixed = true;
+        _grid.for_each_neighbor(next_label.first, [&, next_label = next_label, cost = cost](GridPoint neighbor, Cost edge_cost) {
+            Label neighbor_label{neighbor, next_label.second};
+            auto const candidate_cost = edge_cost + cost;
             handle_candidate(neighbor_label, candidate_cost);
         });
-        for_each_fixed_disjoint_sink_set(next, [&, next = next](TerminalSubset const& other_set) {
-            assert((other_set & next.second).count() == 0);
-            Label other_label{next.first, other_set};
-            Label union_label{next.first, next.second | other_set};
-            auto const candidate_cost = _node_states.at(other_label).second + node_status.second;
+        for_each_fixed_disjoint_sink_set(next_label, [&, next_label = next_label, cost = cost](TerminalSubset const& other_set) {
+            assert((other_set & next_label.second).count() == 0);
+            Label union_label{next_label.first, next_label.second | other_set};
+            auto const candidate_cost = std::get<0>(_node_states.at(other_set, next_label.first)) + cost;
             handle_candidate(union_label, candidate_cost);
         });
     }
     //TODO should never happen!
-    return 0;
+    throw std::runtime_error("No tree found???");
 }
 
 template<LowerBound LB>
 void DijkstraSteiner<LB>::handle_candidate(Label const& label, Cost const& cost_to_label) {
-    if (not _node_states.count(label) or _node_states.at(label).second > cost_to_label) {
-        auto& current_node_state = _node_states[label];
-        assert(not current_node_state.first);
-        current_node_state.second = cost_to_label;
+    auto [cost, fixed] = _node_states.at(label.second, label.first);
+    if (cost > cost_to_label) {
+        assert(not fixed);
+        cost.get() = cost_to_label;
         _heap.push(HeapEntry{cost_to_label + _future_cost(label), label});
     }
 }
@@ -146,7 +150,7 @@ void DijkstraSteiner<LB>::for_each_fixed_disjoint_sink_set(Label const& base_lab
         }
         if (not carry_out) {
             Label resulting_label{base_label.first, disjoint_set};
-            if (_node_states.count(resulting_label) and _node_states.at(resulting_label).first) {
+            if (std::get<bool>(_node_states.at(disjoint_set, base_label.first))) {
                 out(resulting_label.second);
             }
         }
