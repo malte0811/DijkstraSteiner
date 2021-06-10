@@ -17,7 +17,9 @@ concept NeighborVisitor = requires(V v, GridPoint neighbor, Cost cost) {
  */
 class AxisGrid {
 public:
-    AxisGrid(std::vector<Point> const& points, std::size_t dimension);
+    AxisGrid(
+        std::vector<Point> const& points, std::size_t dimension, VertexIndex index_factor
+    );
 
     AxisGrid() = default;
 
@@ -26,14 +28,19 @@ public:
     Coord coord_for_index(TerminalIndex index) const;
 
     std::size_t size() const {
-        return sorted_positions.size();
+        return _sorted_positions.size();
     }
 
     template<NeighborVisitor Visitor>
     void for_each_neighbor(GridPoint point, std::size_t axis, Visitor const& visitor) const;
+
+    VertexIndex global_index_factor() const {
+        return _index_factor;
+    }
 private:
-    std::vector<Coord> differences;
-    std::vector<Coord> sorted_positions;
+    std::vector<Coord> _differences;
+    std::vector<Coord> _sorted_positions;
+    VertexIndex _index_factor;
 };
 
 class HananGrid {
@@ -51,9 +58,8 @@ public:
 
     VertexIndex num_vertices() const;
 
-    VertexIndex get_index(GridPoint const& point) const;
+    Point to_coordinates(GridPoint::Coordinates const& grid_point) const;
 
-    Point to_coordinates(GridPoint const& grid_point) const;
 private:
     std::array<AxisGrid, num_dimensions> _axis_grids;
     std::vector<GridPoint> _terminals;
@@ -63,10 +69,10 @@ template<NeighborVisitor Visitor>
 void AxisGrid::for_each_neighbor(GridPoint const here, std::size_t axis, Visitor const& visitor) const {
     auto const axis_index = here.indices.at(axis);
     if (axis_index > 0) {
-        visitor(here.subtract(axis, 1), differences.at(axis_index - 1));
+        visitor(here.previous(axis, _index_factor), _differences.at(axis_index - 1));
     }
-    if (axis_index < differences.size()) {
-        visitor(here.add(axis, 1), differences.at(axis_index));
+    if (axis_index < _differences.size()) {
+        visitor(here.next(axis, _index_factor), _differences.at(axis_index));
     }
 }
 
@@ -77,25 +83,16 @@ void HananGrid::for_each_neighbor(GridPoint const here, Visitor const& visitor) 
     }
 }
 
-inline VertexIndex HananGrid::get_index(GridPoint const& point) const {
-    VertexIndex result = 0;
-    for (std::size_t i = 0; i < num_dimensions; ++i) {
-        result *= _axis_grids.at(i).size();
-        result += point.indices.at(i);
-    }
-    return result;
-}
-
-inline Point HananGrid::to_coordinates(GridPoint const& grid_point) const {
+inline Point HananGrid::to_coordinates(GridPoint::Coordinates const& grid_point) const {
     Point result;
     for (std::size_t axis = 0; axis < num_dimensions; ++axis) {
-        result.at(axis) = _axis_grids.at(axis).coord_for_index(grid_point.indices.at(axis));
+        result.at(axis) = _axis_grids.at(axis).coord_for_index(grid_point.at(axis));
     }
     return result;
 }
 
 inline Coord AxisGrid::coord_for_index(TerminalIndex index) const {
-    return sorted_positions.at(index);
+    return _sorted_positions.at(index);
 }
 
 #endif

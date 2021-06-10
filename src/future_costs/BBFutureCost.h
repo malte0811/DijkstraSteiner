@@ -7,13 +7,13 @@ struct BBFutureCost {
     HananGrid const& grid;
 
     Cost operator()(Label const& label) const {
-        auto grid_min = label.first;
-        auto grid_max = label.first;
+        auto grid_min = label.first.indices;
+        auto grid_max = label.first.indices;
         auto const& terminals = grid.get_terminals();
         for (TerminalIndex terminal = 0; terminal < terminals.size(); ++terminal) {
             if (not label.second.test(terminal)) {
-                grid_min = grid_min.min(terminals.at(terminal));
-                grid_max = grid_max.max(terminals.at(terminal));
+                grid_min = terminals.at(terminal).min(grid_min);
+                grid_max = terminals.at(terminal).max(grid_max);
             }
         }
         auto const min_coords = grid.to_coordinates(grid_min);

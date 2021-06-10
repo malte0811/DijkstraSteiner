@@ -8,25 +8,27 @@
 #include <optional>
 #include <cassert>
 
-AxisGrid::AxisGrid(std::vector<Point> const& points, std::size_t const dimension) {
-    sorted_positions.reserve(points.size());
+AxisGrid::AxisGrid(
+    std::vector<Point> const& points, std::size_t const dimension, VertexIndex index_factor
+): _index_factor(index_factor) {
+    _sorted_positions.reserve(points.size());
     for (auto const& point : points) {
-        sorted_positions.push_back(point.at(dimension));
+        _sorted_positions.push_back(point.at(dimension));
     }
 
-    std::sort(sorted_positions.begin(), sorted_positions.end());
-    auto const last = std::unique(sorted_positions.begin(), sorted_positions.end());
-    sorted_positions.erase(last, sorted_positions.end());
+    std::sort(_sorted_positions.begin(), _sorted_positions.end());
+    auto const last = std::unique(_sorted_positions.begin(), _sorted_positions.end());
+    _sorted_positions.erase(last, _sorted_positions.end());
 
-    differences.reserve(sorted_positions.size() - 1);
-    for (std::size_t i = 0; i + 1 < sorted_positions.size(); ++i) {
-        differences.push_back(sorted_positions.at(i + 1) - sorted_positions.at(i));
+    _differences.reserve(_sorted_positions.size() - 1);
+    for (std::size_t i = 0; i + 1 < _sorted_positions.size(); ++i) {
+        _differences.push_back(_sorted_positions.at(i + 1) - _sorted_positions.at(i));
     }
 }
 
 TerminalIndex AxisGrid::index_for_coord(Coord const pos) const {
-    for (TerminalIndex i = 0; i < sorted_positions.size(); ++i) {
-        if (pos == sorted_positions.at(i)) {
+    for (TerminalIndex i = 0; i < _sorted_positions.size(); ++i) {
+        if (pos == _sorted_positions.at(i)) {
             return i;
         }
     }
@@ -71,15 +73,19 @@ std::optional<HananGrid> HananGrid::read_from_stream(std::istream& in) {
 }
 
 HananGrid::HananGrid(std::vector<Point> const& points) {
+    VertexIndex pre_factor = 1;
     for (std::size_t dim = 0; dim < num_dimensions; ++dim) {
-        _axis_grids.at(dim) = AxisGrid(points, dim);
+        _axis_grids.at(dim) = AxisGrid(points, dim, pre_factor);
+        pre_factor *= _axis_grids.at(dim).size();
     }
     for (auto const point : points) {
-        GridPoint grid_point;
+        GridPoint::Coordinates coords;
+        VertexIndex index = 0;
         for (std::size_t dim = 0; dim < num_dimensions; ++dim) {
-            grid_point.indices.at(dim) = _axis_grids.at(dim).index_for_coord(point.at(dim));
+            coords.at(dim) = _axis_grids.at(dim).index_for_coord(point.at(dim));
+            index += coords.at(dim) * _axis_grids.at(dim).global_index_factor();
         }
-        _terminals.push_back(grid_point);
+        _terminals.push_back({coords, index});
     }
 }
 

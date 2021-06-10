@@ -69,7 +69,7 @@ template<class... Ts>
 std::size_t LabelMap<Ts...>::index_for(
         TerminalSubset const& subset, GridPoint const& vertex
 ) const {
-    auto const result = subset.to_ulong() | (_grid.get_index(vertex) << _num_non_root_terminals);
+    auto const result = subset.to_ulong() | (vertex.global_index << _num_non_root_terminals);
     return result;
 }
 

@@ -17,7 +17,7 @@ Cost MSTFutureCost::operator()(Label const& label) const {
     // Compute edges to add to form a 1-tree with label.first as "1"
     Cost min_edge = invalid_cost;
     Cost second_min_edge = invalid_cost;
-    auto const extra_point = _grid.to_coordinates(label.first);
+    auto const extra_point = _grid.to_coordinates(label.first.indices);
     for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
         if (not label.second.test(i)) {
             auto const& terminal = _grid.get_terminals().at(i);
@@ -95,7 +95,7 @@ Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
 
 auto MSTFutureCost::get_distances_to_terminals(GridPoint from) const -> SingleVertexDistances {
     SingleVertexDistances result;
-    auto const center = _grid.to_coordinates(from);
+    auto const center = _grid.to_coordinates(from.indices);
     for (TerminalIndex other = 0; other < _grid.get_terminals().size(); ++other) {
         result.at(other) = get_distance(_grid.get_terminals().at(other), center);
     }
@@ -103,7 +103,7 @@ auto MSTFutureCost::get_distances_to_terminals(GridPoint from) const -> SingleVe
 }
 
 Cost MSTFutureCost::get_distance(GridPoint const& grid_point_a, Point const& point_b) const {
-    auto const point_a = _grid.to_coordinates(grid_point_a);
+    auto const point_a = _grid.to_coordinates(grid_point_a.indices);
     Cost terminal_distance = 0;
     for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
         terminal_distance += std::abs(
