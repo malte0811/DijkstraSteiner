@@ -45,7 +45,7 @@ private:
     void handle_candidate(Label const& label, Cost const& cost_to_label);
 
     template<SubsetConsumer Consumer>
-    void for_each_disjoint_sink_set(Label const& disjoint_to, Consumer out) const;
+    void for_each_disjoint_sink_set(TerminalSubset const& disjoint_to, Consumer out) const;
 
     bool _started = false;
     MinHeap<HeapEntry> _heap;
@@ -103,7 +103,7 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
             Label neighbor_label{neighbor, next_label.second};
             handle_candidate(neighbor_label, edge_cost + cost_here);
         });
-        for_each_disjoint_sink_set(next_label, [&](TerminalSubset const& other_set) {
+        for_each_disjoint_sink_set(next_label.second, [&](TerminalSubset const& other_set) {
             assert((other_set & next_label.second).count() == 0);
             auto const [other_cost, other_fixed] = _node_states.at(other_set, next_label.first);
             if (other_fixed) {
@@ -127,30 +127,20 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
 
 template<FutureCost FC>
 template<SubsetConsumer Consumer>
-void DijkstraSteiner<FC>::for_each_disjoint_sink_set(Label const& base_label, Consumer const out) const {
-    std::array<TerminalIndex, max_num_terminals - 1> disjoint_indices;
-    auto const total_num_sinks = _grid.get_terminals().size() - 1;
-    TerminalIndex next_disjoint_index = 0;
-    for (TerminalIndex bit = 0; bit < total_num_sinks; ++bit) {
-        if (not base_label.second.test(bit)) {
-            disjoint_indices.at(next_disjoint_index) = bit;
-            ++next_disjoint_index;
-        }
-    }
-    TerminalSubset disjoint_set;
-    bool carry_out;
+void DijkstraSteiner<FC>::for_each_disjoint_sink_set(TerminalSubset const& base_set, Consumer const out) const {
+    auto const bitmask = (~base_set) & TerminalSubset{(1ul << (_grid.get_terminals().size() - 1)) - 1ul};
+    TerminalSubset current_set;
     do {
-        carry_out = true;
-        for (TerminalIndex i = 0; carry_out and i < next_disjoint_index; ++i) {
-            auto const index = disjoint_indices.at(i);
-            carry_out = disjoint_set.test(index);
-            disjoint_set.flip(index);
-        }
+        current_set |= base_set;
+        auto temp = current_set.to_ulong();
+        ++temp;
+        current_set = TerminalSubset{temp};
+        current_set &= bitmask;
         // Do not call for empty set, as specified in the algorithm
-        if (not carry_out) {
-            out(disjoint_set);
+        if (current_set.any()) {
+            out(current_set);
         }
-    } while (not carry_out);
+    } while (current_set.any());
 }
 
 #endif
