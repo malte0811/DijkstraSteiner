@@ -2,6 +2,7 @@
 #define MST_FUTURE_COST
 
 #include "FutureCost.h"
+#include <limits>
 
 class MSTFutureCost {
 public:
@@ -21,6 +22,8 @@ private:
     std::array<SingleVertexDistances, max_num_terminals> _costs;
     // Index is the bitset in the corresponding label
     std::vector<Cost> mutable _known_tree_costs;
+    VertexIndex mutable _vertex_for_cached_distances = std::numeric_limits<VertexIndex>::max();
+    SingleVertexDistances mutable _cached_distances;
 };
 
 #endif

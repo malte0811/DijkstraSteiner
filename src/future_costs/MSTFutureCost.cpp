@@ -15,18 +15,22 @@ MSTFutureCost::MSTFutureCost(HananGrid const& grid):
 
 Cost MSTFutureCost::operator()(Label const& label) const {
     // Compute edges to add to form a 1-tree with label.first as "1"
+    if (label.first.global_index != _vertex_for_cached_distances) {
+        _cached_distances = get_distances_to_terminals(label.first);
+        _vertex_for_cached_distances = label.first.global_index;
+    }
     Cost min_edge = invalid_cost;
     Cost second_min_edge = invalid_cost;
-    auto const extra_point = _grid.to_coordinates(label.first.indices);
     for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
         if (not label.second.test(i)) {
-            auto const& terminal = _grid.get_terminals().at(i);
-            auto const cost = get_distance(terminal, extra_point);
-            if (cost <= min_edge) {
-                second_min_edge = min_edge;
-                min_edge = cost;
-            } else if (cost < second_min_edge) {
-                second_min_edge = cost;
+            auto const cost = _cached_distances[i];
+            if (cost < second_min_edge) {
+                if (cost <= min_edge) {
+                    second_min_edge = min_edge;
+                    min_edge = cost;
+                } else {
+                    second_min_edge = cost;
+                }
             }
         }
     }
