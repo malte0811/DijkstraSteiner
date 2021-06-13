@@ -129,7 +129,6 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
 
 template<FutureCost FC>
 template<SubsetConsumer Consumer>
-__attribute__((noinline))
 void DijkstraSteiner<FC>::for_each_disjoint_sink_set(TerminalSubset const& base_set, Consumer const out) const {
     // AND-ing with this mask clears the bits we don't want in our disjoint set: Bits over the number of
     // non-root terminals and bits already present in the base_set

@@ -21,10 +21,6 @@ Cost MSTFutureCost::operator()(Label const& label) const {
     for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
         if (not label.second.test(i)) {
             auto const& terminal = _grid.get_terminals().at(i);
-            if (terminal.indices == label.first.indices) {
-                min_edge = second_min_edge = 0;
-                break;
-            }
             auto const cost = get_distance(terminal, extra_point);
             if (cost <= min_edge) {
                 second_min_edge = min_edge;
@@ -38,10 +34,10 @@ Cost MSTFutureCost::operator()(Label const& label) const {
     auto const total_one_tree_cost = [&] {
         if (second_min_edge != invalid_cost) {
             return tree_cost + min_edge + second_min_edge;
-        } else if (min_edge != invalid_cost) {
-            return tree_cost + min_edge;
         } else {
-            return tree_cost;
+            assert(min_edge != invalid_cost);
+            assert(label.second.count() == _grid.get_terminals().size() - 1);
+            return 2 * min_edge;
         }
     }();
     return (total_one_tree_cost + 1) / 2;
@@ -51,6 +47,7 @@ Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
     if (_known_tree_costs.at(label.to_ulong()) != invalid_cost) {
         return _known_tree_costs.at(label.to_ulong());
     }
+    assert(not label.test(_grid.get_terminals().size() - 1));
     std::array<TerminalIndex, max_num_terminals> terminals_to_consider;
     std::size_t num_terminals = 0;
     for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
