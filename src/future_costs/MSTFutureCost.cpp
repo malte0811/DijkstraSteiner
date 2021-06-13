@@ -21,19 +21,17 @@ Cost MSTFutureCost::operator()(Label const& label) const {
     }
     Cost min_edge = invalid_cost;
     Cost second_min_edge = invalid_cost;
-    for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
-        if (not label.second.test(i)) {
-            auto const cost = _cached_distances[i];
-            if (cost < second_min_edge) {
-                if (cost <= min_edge) {
-                    second_min_edge = min_edge;
-                    min_edge = cost;
-                } else {
-                    second_min_edge = cost;
-                }
+    for_each_set_bit(~label.second, _grid.get_terminals().size(), [&](auto const set_bit) {
+        auto const cost = _cached_distances[set_bit];
+        if (cost < second_min_edge) {
+            if (cost <= min_edge) {
+                second_min_edge = min_edge;
+                min_edge = cost;
+            } else {
+                second_min_edge = cost;
             }
         }
-    }
+    });
     auto const tree_cost = get_tree_cost(label.second);
     auto const total_one_tree_cost = [&] {
         if (second_min_edge != invalid_cost) {
