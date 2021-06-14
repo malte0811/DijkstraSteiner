@@ -15,8 +15,8 @@
 #include <cassert>
 
 template<typename T>
-concept SubsetConsumer = requires(T a, TerminalSubset l) {
-    a(l);
+concept SubsetConsumer = requires(T a, TerminalSubset l, Cost c) {
+    a(l, c);
 };
 
 template<FutureCost FC>
@@ -25,6 +25,7 @@ public:
     DijkstraSteiner(HananGrid grid):
         _grid(std::move(grid)),
         _future_cost{_grid},
+        _fixed_values(_grid.num_vertices()),
         _best_cost_bounds(_grid, std::numeric_limits<Cost>::max()),
         _is_fixed(_grid, false)
     {}
@@ -47,7 +48,7 @@ private:
     void handle_candidate(Label const& label, Cost const& cost_to_label);
 
     template<SubsetConsumer Consumer>
-    void for_each_disjoint_sink_set(TerminalSubset const& disjoint_to, Consumer out) const;
+    void for_each_disjoint_fixed_sink_set(Label const& disjoint_to, Consumer out) const;
 
     Cost compute_upper_bound() const;
 
@@ -55,6 +56,7 @@ private:
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
     FC _future_cost;
+    std::vector<std::vector<std::pair<TerminalSubset, Cost>>> _fixed_values;
     LabelMap<Cost> _best_cost_bounds;
     LabelMap<bool> _is_fixed;
     Cost _upper_cost_bound = 0;
@@ -98,24 +100,20 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
             // future cost is 0 here
             return next_heap_element.cost_lower_bound;
         }
-        auto const cost_here = _best_cost_bounds.at(next_label);
-        auto&& is_fixed = _is_fixed.at(next_label);
-        if (is_fixed) {
+        if (_is_fixed.get(next_label)) {
             continue;
         }
-        is_fixed = true;
+        _is_fixed.set(next_label, true);
+        auto const cost_here = _best_cost_bounds.get(next_label);
+        _fixed_values.at(next_label.first.global_index).push_back({next_label.second, cost_here});
         _grid.for_each_neighbor(next_label.first, [&](GridPoint neighbor, Cost edge_cost) {
             Label neighbor_label{neighbor, next_label.second};
             handle_candidate(neighbor_label, edge_cost + cost_here);
         });
-        for_each_disjoint_sink_set(next_label.second, [&](TerminalSubset const& other_set) {
+        for_each_disjoint_fixed_sink_set(next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
             assert((other_set & next_label.second).none());
-            Label other_label{next_label.first, other_set};
-            if (_is_fixed.at(other_label)) {
-                auto const other_cost = _best_cost_bounds.at(other_label);
-                Label union_label{next_label.first, next_label.second | other_set};
-                handle_candidate(union_label, other_cost + cost_here);
-            }
+            Label union_label{next_label.first, next_label.second | other_set};
+            handle_candidate(union_label, other_cost + cost_here);
         });
     }
     std::cerr << "Failed to find a tree, returning cost 0. This should not be possible!\n";
@@ -127,11 +125,11 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
     if (cost_to_label > _upper_cost_bound) {
         return;
     }
-    auto& cost_bound = _best_cost_bounds.at(label);
+    auto const cost_bound = _best_cost_bounds.get(label);
     if (cost_bound > cost_to_label) {
         assert(not _is_fixed.at(label));
         auto const with_fc = cost_to_label + _future_cost(label);
-        cost_bound = cost_to_label;
+        _best_cost_bounds.set(label, cost_to_label);
         if (with_fc > _upper_cost_bound) {
             return;
         }
@@ -141,29 +139,44 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
 
 template<FutureCost FC>
 template<SubsetConsumer Consumer>
-void DijkstraSteiner<FC>::for_each_disjoint_sink_set(TerminalSubset const& base_set, Consumer const out) const {
-    // AND-ing with this mask clears the bits we don't want in our disjoint set: Bits over the number of
-    // non-root terminals and bits already present in the base_set
-    auto const bitmask = (~base_set) & TerminalSubset{(1ul << (_grid.get_terminals().size() - 1)) - 1ul};
-    TerminalSubset current_set;
-    do {
-        current_set |= base_set;
-        // Effectively ++current_set
-        // C++ does not define an increment operator for bitsets, and we did not consider it appropriate to add
-        // one in a header
-        // By incrementing the set ORed with the base_set, any carry out of a "block" of zero-bits in base_set
-        // is propagated to the next block of zeros.
-        {
-            auto temp = current_set.to_ulong();
-            ++temp;
-            current_set = TerminalSubset{temp};
+void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_label, Consumer const out) const {
+    auto const& base_set = base_label.second;
+    auto const num_sinks = _grid.get_terminals().size() - 1;
+    auto const disjoint_bits = num_sinks - base_set.count();
+    auto const num_subsets = (1ul << disjoint_bits) - 1ul;
+    auto const& fixed_vector = _fixed_values.at(base_label.first.global_index);
+    auto const num_fixed_sets = fixed_vector.size();
+    if (num_subsets <= num_fixed_sets) {
+        // AND-ing with this mask clears the bits we don't want in our disjoint set: Bits over the number of
+        // non-root terminals and bits already present in the base_set
+        auto const bitmask = (~base_set) & TerminalSubset{(1ul << num_sinks) - 1ul};
+        TerminalSubset current_set;
+        do {
+            current_set |= base_set;
+            // Effectively ++current_set
+            // C++ does not define an increment operator for bitsets, and we did not consider it appropriate to add
+            // one in a header
+            // By incrementing the set ORed with the base_set, any carry out of a "block" of zero-bits in base_set
+            // is propagated to the next block of zeros.
+            {
+                auto temp = current_set.to_ulong();
+                ++temp;
+                current_set = TerminalSubset{temp};
+            }
+            current_set &= bitmask;
+            // Do not call for empty set, as specified in the algorithm
+            Label other_label{base_label.first, current_set};
+            if (current_set.any() and _is_fixed.get(other_label)) {
+                out(current_set, _best_cost_bounds.get(other_label));
+            }
+        } while (current_set.any());
+    } else {
+        for (auto const& [subset, cost] : fixed_vector) {
+            if ((subset & base_set).none()) {
+                out(subset, cost);
+            }
         }
-        current_set &= bitmask;
-        // Do not call for empty set, as specified in the algorithm
-        if (current_set.any()) {
-            out(current_set);
-        }
-    } while (current_set.any());
+    }
 }
 
 template<FutureCost FC>
