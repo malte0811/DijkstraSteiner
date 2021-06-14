@@ -4,7 +4,7 @@
 
 auto constexpr invalid_cost = std::numeric_limits<Cost>::max();
 
-MSTFutureCost::MSTFutureCost(HananGrid const& grid):
+MSTFutureCost::MSTFutureCost(HananGrid const& grid) :
     _grid(grid),
     _known_tree_costs(1 << (grid.get_terminals().size() - 1), invalid_cost) {
     auto const num_terminals = grid.get_terminals().size();
@@ -21,17 +21,19 @@ Cost MSTFutureCost::operator()(Label const& label) const {
     }
     Cost min_edge = invalid_cost;
     Cost second_min_edge = invalid_cost;
-    for_each_set_bit(~label.second, _grid.get_terminals().size(), [&](auto const set_bit) {
-        auto const cost = _cached_distances[set_bit];
-        if (cost < second_min_edge) {
-            if (cost <= min_edge) {
-                second_min_edge = min_edge;
-                min_edge = cost;
-            } else {
-                second_min_edge = cost;
+    for_each_set_bit(
+        ~label.second, _grid.get_terminals().size(), [&](auto const set_bit) {
+            auto const cost = _cached_distances[set_bit];
+            if (cost < second_min_edge) {
+                if (cost <= min_edge) {
+                    second_min_edge = min_edge;
+                    min_edge = cost;
+                } else {
+                    second_min_edge = cost;
+                }
             }
         }
-    });
+    );
     auto const tree_cost = get_tree_cost(label.second);
     auto const total_one_tree_cost = [&] {
         if (second_min_edge != invalid_cost) {
@@ -57,7 +59,7 @@ Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
 Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {
     std::array<TerminalIndex, max_num_terminals> terminals_to_consider;
     std::size_t num_terminals = 0;
-    for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
+    for (TerminalIndex i = 0; i < _grid.num_terminals(); ++i) {
         if (not label.test(i)) {
             terminals_to_consider.at(num_terminals) = i;
             ++num_terminals;
@@ -73,8 +75,7 @@ Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {
     };
     MinHeap<HeapEntry> heap;
     heap.push({0, terminals_to_consider.front()});
-    std::array<bool, max_num_terminals> is_connected;
-    std::fill(is_connected.begin(), is_connected.end(), false);
+    std::array<bool, max_num_terminals> is_connected{};
     std::size_t num_connected = 0;
     Cost total_cost = 0;
     while (num_connected < num_terminals) {
@@ -99,7 +100,7 @@ Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {
 auto MSTFutureCost::get_distances_to_terminals(GridPoint from) const -> SingleVertexDistances {
     SingleVertexDistances result;
     auto const center = _grid.to_coordinates(from.indices);
-    for (TerminalIndex other = 0; other < _grid.get_terminals().size(); ++other) {
+    for (TerminalIndex other = 0; other < _grid.num_terminals(); ++other) {
         result.at(other) = get_distance(_grid.get_terminals().at(other), center);
     }
     return result;
@@ -110,7 +111,7 @@ Cost MSTFutureCost::get_distance(GridPoint const& grid_point_a, Point const& poi
     Cost terminal_distance = 0;
     for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
         terminal_distance += std::abs(
-                static_cast<int>(point_a.at(dimension)) - static_cast<int>(point_b.at(dimension))
+            static_cast<int>(point_a.at(dimension)) - static_cast<int>(point_b.at(dimension))
         );
     }
     return terminal_distance;

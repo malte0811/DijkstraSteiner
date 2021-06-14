@@ -5,7 +5,7 @@
 #include "LabelMap.h"
 #include "HananGrid.h"
 #include "future_costs/FutureCost.h"
-#include "future_costs/MSTFutureCost.h"
+#include "PrimSteinerHeuristic.h"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -22,18 +22,18 @@ concept SubsetConsumer = requires(T a, TerminalSubset l, Cost c) {
 template<FutureCost FC>
 class DijkstraSteiner {
 public:
-    DijkstraSteiner(HananGrid grid):
+    explicit DijkstraSteiner(HananGrid grid) :
         _grid(std::move(grid)),
         _future_cost{_grid},
         _fixed_values(_grid.num_vertices()),
         _best_cost_bounds(_grid, std::numeric_limits<Cost>::max()),
-        _is_fixed(_grid, false)
-    {}
+        _is_fixed(_grid, false) {}
 
-    Cost get_optimum_cost();
+    [[nodiscard]] Cost get_optimum_cost();
+
 private:
     struct HeapEntry {
-        Cost cost_lower_bound;
+        Cost cost_lower_bound{};
         Label label;
 
         bool operator>(HeapEntry const& other) const {
@@ -43,12 +43,12 @@ private:
 
     void init();
 
-    Label get_full_tree_label() const;
+    [[nodiscard]] Label get_full_tree_label() const;
 
     void handle_candidate(Label const& label, Cost const& cost_to_label);
 
     template<SubsetConsumer Consumer>
-    void for_each_disjoint_fixed_sink_set(Label const& disjoint_to, Consumer out) const;
+    void for_each_disjoint_fixed_sink_set(Label const& base_label, Consumer out) const;
 
     bool _started = false;
     MinHeap<HeapEntry> _heap;
@@ -104,15 +104,19 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
         _is_fixed.set(next_label, true);
         auto const cost_here = _best_cost_bounds.get(next_label);
         _fixed_values.at(next_label.first.global_index).push_back({next_label.second, cost_here});
-        _grid.for_each_neighbor(next_label.first, [&](GridPoint neighbor, Cost edge_cost) {
-            Label neighbor_label{neighbor, next_label.second};
-            handle_candidate(neighbor_label, edge_cost + cost_here);
-        });
-        for_each_disjoint_fixed_sink_set(next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
-            assert((other_set & next_label.second).none());
-            Label union_label{next_label.first, next_label.second | other_set};
-            handle_candidate(union_label, other_cost + cost_here);
-        });
+        _grid.for_each_neighbor(
+            next_label.first, [&](GridPoint neighbor, Cost edge_cost) {
+                Label neighbor_label{neighbor, next_label.second};
+                handle_candidate(neighbor_label, edge_cost + cost_here);
+            }
+        );
+        for_each_disjoint_fixed_sink_set(
+            next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
+                assert((other_set & next_label.second).none());
+                Label union_label{next_label.first, next_label.second | other_set};
+                handle_candidate(union_label, other_cost + cost_here);
+            }
+        );
     }
     std::cerr << "Failed to find a tree, returning cost 0. This should not be possible!\n";
     return 0;
@@ -169,7 +173,7 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
             }
         } while (current_set.any());
     } else {
-        for (auto const& [subset, cost] : fixed_vector) {
+        for (auto const&[subset, cost] : fixed_vector) {
             if ((subset & base_set).none()) {
                 out(subset, cost);
             }

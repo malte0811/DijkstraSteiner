@@ -18,7 +18,8 @@ TerminalIndex constexpr max_num_terminals = 20;
 using TerminalSubset = std::bitset<max_num_terminals>;
 
 using VertexIndex = std::uint16_t;
-static_assert([]() constexpr -> std::size_t {
+static_assert(
+    []() constexpr -> std::size_t {
         auto const as_size_t = static_cast<std::size_t>(max_num_terminals);
         std::size_t result = 1;
         for (std::size_t i = 0; i < num_dimensions; ++i) {
@@ -33,25 +34,24 @@ using MinHeap = std::priority_queue<T, std::vector<T>, std::greater<T>>;
 // TODO remove once I have a working libstdc++ for C++20
 // TODO do we even have one at the institute?
 // copied from cppreference
-template <class From, class To>
+template<class From, class To>
 concept convertible_to =
-  std::is_convertible_v<From, To> &&
-  requires(std::add_rvalue_reference_t<From> (&f)()) {
+std::is_convertible_v<From, To> && requires(std::add_rvalue_reference_t<From> (& f)()) {
     static_cast<To>(f());
-  };
+};
 
 template<class Callback>
 void for_each_set_bit(
-        TerminalSubset const& set, std::size_t num_terminals, Callback const& cb
+    TerminalSubset const& set, std::size_t num_terminals, Callback const& cb
 ) {
     auto bitset = set.to_ulong() & ((1 << num_terminals) - 1);
     // Based on https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
     // TODO add compile-time fallback to be standard compliant
     while (bitset != 0) {
-      uint64_t t = bitset & -bitset;
-      int r = __builtin_ctzl(bitset);
-      cb(r);
-      bitset ^= t;
+        uint64_t t = bitset & -bitset;
+        int r = __builtin_ctzl(bitset);
+        cb(r);
+        bitset ^= t;
     }
 }
 

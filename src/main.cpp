@@ -1,6 +1,5 @@
 #include <iostream>
 #include "DijkstraSteiner.h"
-#include "future_costs/NullFutureCost.h"
 #include "future_costs/BBFutureCost.h"
 #include "future_costs/MSTFutureCost.h"
 #include "future_costs/MaxFutureCost.h"

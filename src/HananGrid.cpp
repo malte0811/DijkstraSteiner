@@ -3,14 +3,13 @@
 #include <iostream>
 #include <istream>
 #include <stdexcept>
-#include <utility>
-#include <tuple>
 #include <optional>
 #include <cassert>
 
 AxisGrid::AxisGrid(
     std::vector<Point> const& points, std::size_t const dimension, VertexIndex index_factor
-): _index_factor(index_factor) {
+) :
+    _index_factor(index_factor) {
     _sorted_positions.reserve(points.size());
     for (auto const& point : points) {
         _sorted_positions.push_back(point.at(dimension));
@@ -57,7 +56,7 @@ std::optional<HananGrid> HananGrid::read_from_stream(std::istream& in) {
     }
     if (num_terminals > max_num_terminals) {
         std::cerr << "Instance specifies " << num_terminals
-            << ", but only " << max_num_terminals << " are supported\n";
+                  << ", but only " << max_num_terminals << " are supported\n";
         return std::nullopt;
     }
     std::vector<Point> points;

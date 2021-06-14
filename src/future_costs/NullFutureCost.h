@@ -4,7 +4,7 @@
 #include "FutureCost.h"
 
 struct NullFutureCost {
-    NullFutureCost(HananGrid const&) {}
+    explicit NullFutureCost(HananGrid const&) {}
 
     Cost operator()(Label const&) const {
         return 0;

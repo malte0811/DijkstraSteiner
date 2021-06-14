@@ -18,10 +18,9 @@ public:
 
     LabelMap(HananGrid const& grid, T initial) :
         _num_non_root_terminals(grid.get_terminals().size() - 1),
-        _content(grid.num_vertices() << _num_non_root_terminals, initial)
-    {}
+        _content(grid.num_vertices() << _num_non_root_terminals, initial) {}
 
-    const_reference get(Label const& label) const {
+    [[nodiscard]] const_reference get(Label const& label) const {
         // Using vector::at here would increase runtime by ~33%
         return _content[index_for(label)];
     }
@@ -29,8 +28,9 @@ public:
     void set(Label const& label, T const new_value) {
         _content[index_for(label)] = new_value;
     }
+
 private:
-    std::size_t index_for(Label const& label) const {
+    [[nodiscard]] std::size_t index_for(Label const& label) const {
         return label.second.to_ulong() | (label.first.global_index << _num_non_root_terminals);
     }
 

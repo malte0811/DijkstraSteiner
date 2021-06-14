@@ -15,13 +15,13 @@ struct GridPoint {
     GridPoint next(std::size_t coordinate, VertexIndex axis_factor) const {
         auto new_indices = indices;
         ++new_indices.at(coordinate);
-        return { new_indices, static_cast<VertexIndex>(global_index + axis_factor) };
+        return {new_indices, static_cast<VertexIndex>(global_index + axis_factor)};
     }
 
     GridPoint previous(std::size_t coordinate, VertexIndex axis_factor) const {
         auto new_indices = indices;
         --new_indices.at(coordinate);
-        return { new_indices, static_cast<VertexIndex>(global_index - axis_factor) };
+        return {new_indices, static_cast<VertexIndex>(global_index - axis_factor)};
     }
 
     bool operator==(GridPoint const& other) const {
