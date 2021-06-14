@@ -13,7 +13,7 @@ add_executable(DijkstraSteiner
     src/TypeDefs.h
     src/GridPoint.h
     src/future_costs/NullFutureCost.h
-    src/future_costs/BBFutureCost.h
+    src/future_costs/BBFutureCost.h src/future_costs/BBFutureCost.cpp
     src/future_costs/MSTFutureCost.h src/future_costs/MSTFutureCost.cpp
 )
 
