@@ -50,8 +50,6 @@ private:
     template<SubsetConsumer Consumer>
     void for_each_disjoint_fixed_sink_set(Label const& disjoint_to, Consumer out) const;
 
-    Cost compute_upper_bound() const;
-
     bool _started = false;
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
@@ -66,7 +64,7 @@ template<FutureCost FC>
 void DijkstraSteiner<FC>::init() {
     assert(not _started);
     _started = true;
-    _upper_cost_bound = compute_upper_bound();
+    _upper_cost_bound = PrimSteinerHeuristic{_grid}.compute_upper_bound();
     auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
     for (std::size_t terminal_id = 0; terminal_id < num_non_root_terminals; ++terminal_id) {
         TerminalSubset terminals;
@@ -127,7 +125,7 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
     }
     auto const cost_bound = _best_cost_bounds.get(label);
     if (cost_bound > cost_to_label) {
-        assert(not _is_fixed.at(label));
+        assert(not _is_fixed.get(label));
         auto const with_fc = cost_to_label + _future_cost(label);
         _best_cost_bounds.set(label, cost_to_label);
         if (with_fc > _upper_cost_bound) {
@@ -177,13 +175,6 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
             }
         }
     }
-}
-
-template<FutureCost FC>
-Cost DijkstraSteiner<FC>::compute_upper_bound() const {
-    MSTFutureCost calculator{_grid};
-    TerminalSubset all_terminals{0};
-    return calculator.compute_tree_cost(all_terminals);
 }
 
 #endif

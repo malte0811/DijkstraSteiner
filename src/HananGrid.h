@@ -56,6 +56,10 @@ public:
         return _terminals;
     }
 
+    TerminalIndex num_terminals() const {
+       return _terminals.size();
+    }
+
     VertexIndex num_vertices() const;
 
     Point to_coordinates(GridPoint::Coordinates const& grid_point) const;
