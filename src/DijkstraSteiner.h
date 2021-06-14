@@ -5,6 +5,7 @@
 #include "LabelMap.h"
 #include "HananGrid.h"
 #include "future_costs/FutureCost.h"
+#include "future_costs/MSTFutureCost.h"
 #include <iostream>
 #include <limits>
 #include <stdexcept>
@@ -48,18 +49,22 @@ private:
     template<SubsetConsumer Consumer>
     void for_each_disjoint_sink_set(TerminalSubset const& disjoint_to, Consumer out) const;
 
+    Cost compute_upper_bound() const;
+
     bool _started = false;
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
     FC _future_cost;
     LabelMap<Cost> _best_cost_bounds;
     LabelMap<bool> _is_fixed;
+    Cost _upper_cost_bound = 0;
 };
 
 template<FutureCost FC>
 void DijkstraSteiner<FC>::init() {
     assert(not _started);
     _started = true;
+    _upper_cost_bound = compute_upper_bound();
     auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
     for (std::size_t terminal_id = 0; terminal_id < num_non_root_terminals; ++terminal_id) {
         TerminalSubset terminals;
@@ -119,11 +124,18 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
 
 template<FutureCost FC>
 void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_to_label) {
+    if (cost_to_label > _upper_cost_bound) {
+        return;
+    }
     auto& cost_bound = _best_cost_bounds.at(label);
     if (cost_bound > cost_to_label) {
         assert(not _is_fixed.at(label));
+        auto const with_fc = cost_to_label + _future_cost(label);
         cost_bound = cost_to_label;
-        _heap.push(HeapEntry{cost_to_label + _future_cost(label), label});
+        if (with_fc > _upper_cost_bound) {
+            return;
+        }
+        _heap.push(HeapEntry{with_fc, label});
     }
 }
 
@@ -152,6 +164,13 @@ void DijkstraSteiner<FC>::for_each_disjoint_sink_set(TerminalSubset const& base_
             out(current_set);
         }
     } while (current_set.any());
+}
+
+template<FutureCost FC>
+Cost DijkstraSteiner<FC>::compute_upper_bound() const {
+    MSTFutureCost calculator{_grid};
+    TerminalSubset all_terminals{0};
+    return calculator.compute_tree_cost(all_terminals);
 }
 
 #endif

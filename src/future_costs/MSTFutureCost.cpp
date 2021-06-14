@@ -46,10 +46,15 @@ Cost MSTFutureCost::operator()(Label const& label) const {
 }
 
 Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
+    assert(not label.test(_grid.get_terminals().size() - 1));
     if (_known_tree_costs.at(label.to_ulong()) != invalid_cost) {
         return _known_tree_costs.at(label.to_ulong());
+    } else {
+        return _known_tree_costs.at(label.to_ulong()) = compute_tree_cost(label);
     }
-    assert(not label.test(_grid.get_terminals().size() - 1));
+}
+
+Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {
     std::array<TerminalIndex, max_num_terminals> terminals_to_consider;
     std::size_t num_terminals = 0;
     for (TerminalIndex i = 0; i < _grid.get_terminals().size(); ++i) {
@@ -88,7 +93,6 @@ Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
             }
         }
     }
-    _known_tree_costs.at(label.to_ulong()) = total_cost;
     return total_cost;
 }
 

@@ -29,7 +29,7 @@ static_assert([]() constexpr -> std::size_t {
 
 template<class T>
 using MinHeap = std::priority_queue<T, std::vector<T>, std::greater<T>>;
-//
+
 // TODO remove once I have a working libstdc++ for C++20
 // TODO do we even have one at the institute?
 // copied from cppreference
