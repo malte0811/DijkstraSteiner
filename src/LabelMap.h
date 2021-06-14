@@ -36,12 +36,13 @@ LabelMap<T>::LabelMap(HananGrid const& grid, T initial)
 
 template<class T>
 auto LabelMap<T>::at(Label const& label) const -> const_reference {
-    return _content.at(index_for(label));
+    // Using vector::at here would increase runtime by ~33%
+    return _content[index_for(label)];
 }
 
 template<class T>
 auto LabelMap<T>::at(Label const& label) -> reference {
-    return _content.at(index_for(label));
+    return _content[index_for(label)];
 }
 
 template<class T>
