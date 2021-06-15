@@ -171,7 +171,7 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
     auto const num_subsets = (1ul << disjoint_bits) - 1ul;
     auto const& fixed_vector = _fixed_values.at(base_label.first.global_index);
     auto const num_fixed_sets = fixed_vector.size();
-    if (num_subsets <= num_fixed_sets) {
+    if (10 * num_subsets <= num_fixed_sets) {
         // AND-ing with this mask clears the bits we don't want in our disjoint set: Bits over the number of
         // non-root terminals and bits already present in the base_set
         auto const bitmask = (~base_set) & TerminalSubset{(1ul << _grid.num_non_root_terminals()) - 1ul};
