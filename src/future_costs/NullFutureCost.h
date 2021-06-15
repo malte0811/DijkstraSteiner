@@ -6,9 +6,11 @@
 struct NullFutureCost {
     explicit NullFutureCost(HananGrid const&) {}
 
-    Cost operator()(Label const&) const {
+    Cost operator()(Label const&, bool) const {
         return 0;
     }
 };
+
+static_assert(FutureCost<NullFutureCost>);
 
 #endif

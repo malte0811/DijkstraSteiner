@@ -26,4 +26,6 @@ private:
     SingleVertexDistances mutable _cached_distances{};
 };
 
+static_assert(FutureCost<MSTFutureCost>);
+
 #endif

@@ -23,24 +23,24 @@ public:
 
     AxisGrid() = default;
 
-    TerminalIndex index_for_coord(Coord pos) const;
+    [[nodiscard]] TerminalIndex index_for_coord(Coord pos) const;
 
-    Coord coord_for_index(TerminalIndex index) const;
+    [[nodiscard]] Coord coord_for_index(TerminalIndex index) const;
 
-    std::size_t size() const {
+    [[nodiscard]] std::size_t size() const {
         return _sorted_positions.size();
     }
 
     template<NeighborVisitor Visitor>
-    void for_each_neighbor(GridPoint point, std::size_t axis, Visitor const& visitor) const;
+    void for_each_neighbor(GridPoint here, std::size_t axis, Visitor const& visitor) const;
 
-    VertexIndex global_index_factor() const {
+    [[nodiscard]] VertexIndex global_index_factor() const {
         return _index_factor;
     }
 private:
     std::vector<Coord> _differences;
     std::vector<Coord> _sorted_positions;
-    VertexIndex _index_factor;
+    VertexIndex _index_factor{};
 };
 
 class HananGrid {
@@ -49,30 +49,30 @@ public:
 
     static std::optional<HananGrid> read_from_stream(std::istream& in);
 
-    HananGrid(std::vector<Point> const& points);
+    explicit HananGrid(std::vector<Point> const& points);
 
     template<NeighborVisitor Visitor>
     void for_each_neighbor(GridPoint here, Visitor const& visitor) const;
 
-    auto const& get_terminals() const {
+    [[nodiscard]] auto const& get_terminals() const {
         return _terminals;
     }
 
-    TerminalIndex num_terminals() const {
+    [[nodiscard]] TerminalIndex num_terminals() const {
         return _terminals.size();
     }
 
-    TerminalIndex num_non_root_terminals() const {
+    [[nodiscard]] TerminalIndex num_non_root_terminals() const {
        return num_terminals() - 1;
     }
 
-    VertexIndex num_vertices() const;
+    [[nodiscard]] VertexIndex num_vertices() const;
 
-    Point to_coordinates(GridPoint::Coordinates const& grid_point) const;
+    [[nodiscard]] Point to_coordinates(GridPoint::Coordinates const& grid_point) const;
 
-    SingleVertexDistances get_distances_to_terminals(GridPoint from) const;
+    [[nodiscard]] SingleVertexDistances get_distances_to_terminals(GridPoint from) const;
 
-    Cost get_distance(GridPoint const& point_a, Point const& point_b) const;
+    [[nodiscard]] Cost get_distance(GridPoint const& point_a, Point const& point_b) const;
 private:
     std::array<AxisGrid, num_dimensions> _axis_grids;
     std::vector<GridPoint> _terminals;

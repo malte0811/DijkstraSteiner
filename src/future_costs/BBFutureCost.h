@@ -9,4 +9,6 @@ struct BBFutureCost {
     Cost operator()(Label const& label) const;
 };
 
+static_assert(FutureCost<BBFutureCost>);
+
 #endif

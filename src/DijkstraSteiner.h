@@ -64,7 +64,7 @@ private:
 
     void update_lemma_15_data_for(Label const& label, Cost label_cost);
 
-    DistanceToTerminal get_closest_terminal_in_complement(TerminalSubset const& terminals) const;
+    [[nodiscard]] DistanceToTerminal get_closest_terminal_in_complement(TerminalSubset const& terminals) const;
 
     bool _started = false;
     MinHeap<HeapEntry> _heap;
