@@ -44,11 +44,10 @@ template<class Callback>
 void for_each_set_bit(
     TerminalSubset const& set, std::size_t num_terminals, Callback const& cb
 ) {
-    auto bitset = set.to_ulong() & ((1 << num_terminals) - 1);
+    std::uint64_t bitset = set.to_ulong() & ((1 << num_terminals) - 1);
     // Based on https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
-    // TODO add compile-time fallback to be standard compliant
     while (bitset != 0) {
-        uint64_t t = bitset & -bitset;
+        std::uint64_t t = bitset & -bitset;
         int r = __builtin_ctzl(bitset);
         cb(r);
         bitset ^= t;

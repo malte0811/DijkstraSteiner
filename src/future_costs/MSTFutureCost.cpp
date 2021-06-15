@@ -4,11 +4,8 @@
 
 auto constexpr invalid_cost = std::numeric_limits<Cost>::max();
 
-MSTFutureCost::MSTFutureCost(HananGrid const& grid) :
-    _grid(grid),
-    _known_tree_costs(1 << (grid.get_terminals().size() - 1), invalid_cost) {
-    auto const num_terminals = grid.get_terminals().size();
-    for (TerminalIndex index_a = 0; index_a < num_terminals; ++index_a) {
+MSTFutureCost::MSTFutureCost(HananGrid const& grid) : _grid(grid) {
+    for (TerminalIndex index_a = 0; index_a < grid.num_terminals(); ++index_a) {
         _costs.at(index_a) = grid.get_distances_to_terminals(grid.get_terminals().at(index_a));
     }
 }
@@ -22,7 +19,7 @@ Cost MSTFutureCost::operator()(Label const& label) const {
     Cost min_edge = invalid_cost;
     Cost second_min_edge = invalid_cost;
     for_each_set_bit(
-        ~label.second, _grid.get_terminals().size(), [&](auto const set_bit) {
+        ~label.second, _grid.num_terminals(), [&](auto const set_bit) {
             auto const cost = _cached_distances[set_bit];
             if (cost < second_min_edge) {
                 if (cost <= min_edge) {
@@ -40,7 +37,7 @@ Cost MSTFutureCost::operator()(Label const& label) const {
             return tree_cost + min_edge + second_min_edge;
         } else {
             assert(min_edge != invalid_cost);
-            assert(label.second.count() == _grid.get_terminals().size() - 1);
+            assert(label.second.count() == _grid.num_non_root_terminals());
             return 2 * min_edge;
         }
     }();
@@ -48,11 +45,14 @@ Cost MSTFutureCost::operator()(Label const& label) const {
 }
 
 Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
-    assert(not label.test(_grid.get_terminals().size() - 1));
-    if (_known_tree_costs.at(label.to_ulong()) != invalid_cost) {
-        return _known_tree_costs.at(label.to_ulong());
+    assert(not label.test(_grid.num_terminals() - 1));
+    auto const known_it = _known_tree_costs.find(label);
+    if (known_it != _known_tree_costs.end()) {
+        return known_it->second;
     } else {
-        return _known_tree_costs.at(label.to_ulong()) = compute_tree_cost(label);
+        auto const cost = compute_tree_cost(label);
+        _known_tree_costs.emplace(label, cost);
+        return cost;
     }
 }
 

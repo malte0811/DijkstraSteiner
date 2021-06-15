@@ -2,7 +2,6 @@
 #define DIJKSTRA_STEINER
 
 #include "TypeDefs.h"
-#include "LabelMap.h"
 #include "HananGrid.h"
 #include "future_costs/FutureCost.h"
 #include "PrimSteinerHeuristic.h"
@@ -12,7 +11,17 @@
 #include <utility>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 #include <cassert>
+
+namespace std {
+template<>
+struct hash<Label> {
+    std::size_t operator()(Label const& label) const {
+        return label.first.global_index << max_num_terminals | label.second.to_ulong();
+    }
+};
+}
 
 template<typename T>
 concept SubsetConsumer = requires(T a, TerminalSubset l, Cost c) {
@@ -25,13 +34,7 @@ public:
     explicit DijkstraSteiner(HananGrid grid) :
         _grid(std::move(grid)),
         _future_cost{_grid},
-        _fixed_values(_grid.num_vertices()),
-        _best_cost_bounds(_grid, std::numeric_limits<Cost>::max()),
-        _is_fixed(_grid, false),
-        _lemma_15_subsets(1ul << _grid.num_non_root_terminals()),
-        // Divide by 2: Still larger than any cost we care about, and we can add two without overflow
-        _lemma_15_bounds(1ul << _grid.num_non_root_terminals(), std::numeric_limits<Cost>::max() / 2),
-        _cheapest_edge_to_complement(1 << _grid.num_non_root_terminals()) {}
+        _fixed_values(_grid.num_vertices()) {}
 
     [[nodiscard]] Cost get_optimum_cost();
 
@@ -68,11 +71,11 @@ private:
     HananGrid const _grid;
     FC _future_cost;
     std::vector<std::vector<std::pair<TerminalSubset, Cost>>> _fixed_values;
-    LabelMap<Cost> _best_cost_bounds;
-    LabelMap<bool> _is_fixed;
-    std::vector<TerminalSubset> _lemma_15_subsets;
-    std::vector<Cost> _lemma_15_bounds;
-    std::vector<DistanceToTerminal> mutable _cheapest_edge_to_complement;
+    std::unordered_map<Label, Cost> _best_cost_bounds;
+    std::unordered_set<Label> _fixed;
+    std::unordered_map<TerminalSubset, TerminalSubset> _lemma_15_subsets;
+    std::unordered_map<TerminalSubset, Cost> _lemma_15_bounds;
+    std::unordered_map<TerminalSubset, DistanceToTerminal> mutable _cheapest_edge_to_complement;
     Cost _upper_cost_bound = 0;
 };
 
@@ -81,8 +84,7 @@ void DijkstraSteiner<FC>::init() {
     assert(not _started);
     _started = true;
     _upper_cost_bound = PrimSteinerHeuristic{_grid}.compute_upper_bound();
-    auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
-    for (std::size_t terminal_id = 0; terminal_id < num_non_root_terminals; ++terminal_id) {
+    for (std::size_t terminal_id = 0; terminal_id < _grid.num_non_root_terminals(); ++terminal_id) {
         TerminalSubset terminals;
         terminals.set(terminal_id);
         handle_candidate({_grid.get_terminals().at(terminal_id), terminals}, 0);
@@ -91,13 +93,10 @@ void DijkstraSteiner<FC>::init() {
 
 template<FutureCost FC>
 Label DijkstraSteiner<FC>::get_full_tree_label() const {
-    auto const root_terminal = _grid.get_terminals().back();
-    auto const num_non_root_terminals = _grid.get_terminals().size() - 1;
-    TerminalSubset terminals;
-    for (std::size_t terminal_id = 0; terminal_id < num_non_root_terminals; ++terminal_id) {
-        terminals.set(terminal_id);
-    }
-    return Label{root_terminal, terminals};
+    return Label{
+        _grid.get_terminals().back(),
+        TerminalSubset{(1ul << _grid.num_non_root_terminals()) - 1}
+    };
 }
 
 template<FutureCost FC>
@@ -114,13 +113,12 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
             // future cost is 0 here
             return next_heap_element.cost_lower_bound;
         }
-        if (_is_fixed.get(next_label)) {
+        if (not _fixed.insert(next_label).second) {
             continue;
         }
-        _is_fixed.set(next_label, true);
-        auto const cost_here = _best_cost_bounds.get(next_label);
-        auto& lemma_bound = _lemma_15_bounds.at(next_label.second.to_ulong());
-        if (lemma_bound < cost_here) {
+        auto const cost_here = _best_cost_bounds.at(next_label);
+        auto const lemma_bound_it = _lemma_15_bounds.find(next_label.second);
+        if (lemma_bound_it != _lemma_15_bounds.end() and lemma_bound_it->second < cost_here) {
             continue;
         }
         update_lemma_15_data_for(next_label, cost_here);
@@ -149,15 +147,15 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
     if (cost_to_label > _upper_cost_bound) {
         return;
     }
-    auto const specific_upper_bound = _lemma_15_bounds.at(label.second.to_ulong());
-    if (cost_to_label > specific_upper_bound) {
+    auto const specific_upper_bound_it = _lemma_15_bounds.find(label.second);
+    if (specific_upper_bound_it != _lemma_15_bounds.end() and cost_to_label > specific_upper_bound_it->second) {
         return;
     }
-    auto const cost_bound = _best_cost_bounds.get(label);
-    if (cost_bound > cost_to_label) {
-        assert(not _is_fixed.get(label));
+    auto const cost_bound_it = _best_cost_bounds.find(label);
+    if (cost_bound_it == _best_cost_bounds.end() or cost_bound_it->second > cost_to_label) {
+        assert(not _fixed.count(label));
         auto const with_fc = cost_to_label + _future_cost(label);
-        _best_cost_bounds.set(label, cost_to_label);
+        _best_cost_bounds.insert_or_assign(label, cost_to_label);
         if (with_fc > _upper_cost_bound) {
             return;
         }
@@ -169,15 +167,14 @@ template<FutureCost FC>
 template<SubsetConsumer Consumer>
 void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_label, Consumer const out) const {
     auto const& base_set = base_label.second;
-    auto const num_sinks = _grid.get_terminals().size() - 1;
-    auto const disjoint_bits = num_sinks - base_set.count();
+    auto const disjoint_bits = _grid.num_non_root_terminals() - base_set.count();
     auto const num_subsets = (1ul << disjoint_bits) - 1ul;
     auto const& fixed_vector = _fixed_values.at(base_label.first.global_index);
     auto const num_fixed_sets = fixed_vector.size();
     if (num_subsets <= num_fixed_sets) {
         // AND-ing with this mask clears the bits we don't want in our disjoint set: Bits over the number of
         // non-root terminals and bits already present in the base_set
-        auto const bitmask = (~base_set) & TerminalSubset{(1ul << num_sinks) - 1ul};
+        auto const bitmask = (~base_set) & TerminalSubset{(1ul << _grid.num_non_root_terminals()) - 1ul};
         TerminalSubset current_set;
         do {
             current_set |= base_set;
@@ -194,8 +191,8 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
             current_set &= bitmask;
             // Do not call for empty set, as specified in the algorithm
             Label other_label{base_label.first, current_set};
-            if (current_set.any() and _is_fixed.get(other_label)) {
-                out(current_set, _best_cost_bounds.get(other_label));
+            if (current_set.any() and _fixed.count(other_label)) {
+                out(current_set, _best_cost_bounds.at(other_label));
             }
         } while (current_set.any());
     } else {
@@ -221,10 +218,10 @@ void DijkstraSteiner<FC>::update_lemma_15_data_for(Label const& label, Cost cons
         }
     );
     auto const new_bound = cheapest.distance + label_cost;
-    auto& lemma_bound = _lemma_15_bounds.at(label.second.to_ulong());
-    if (new_bound < lemma_bound) {
-        lemma_bound = new_bound;
-        _lemma_15_subsets.at(label.second.to_ulong()) = TerminalSubset{1ul << cheapest.terminal};
+    auto const lemma_bound_it = _lemma_15_bounds.find(label.second);
+    if (lemma_bound_it == _lemma_15_bounds.end() or new_bound < lemma_bound_it->second) {
+        _lemma_15_bounds.insert_or_assign(label.second, new_bound);
+        _lemma_15_subsets.insert_or_assign(label.second, TerminalSubset{1ul << cheapest.terminal});
     }
 }
 
@@ -232,25 +229,28 @@ template<FutureCost FC>
 auto DijkstraSteiner<FC>::get_closest_terminal_in_complement(
     TerminalSubset const& terminals
 ) const -> DistanceToTerminal {
-    auto& cheapest_edge_from_terminal_set = _cheapest_edge_to_complement.at(terminals.to_ulong());
-    if (cheapest_edge_from_terminal_set.distance == std::numeric_limits<Cost>::max()) {
-        for_each_set_bit(
-            terminals, _grid.num_terminals(), [&](TerminalIndex contained) {
-                auto const contained_point = _grid.to_coordinates(_grid.get_terminals().at(contained).indices);
-                for_each_set_bit(
-                    ~terminals, _grid.num_terminals(), [&](TerminalIndex not_contained) {
-                        auto const distance = _grid.get_distance(
-                            _grid.get_terminals().at(not_contained), contained_point
-                        );
-                        if (distance < cheapest_edge_from_terminal_set.distance) {
-                            cheapest_edge_from_terminal_set.distance = distance;
-                            cheapest_edge_from_terminal_set.terminal = not_contained;
-                        }
-                    }
-                );
-            }
-        );
+    auto const cheapest_edge_from_terminal_set_it = _cheapest_edge_to_complement.find(terminals);
+    if (cheapest_edge_from_terminal_set_it != _cheapest_edge_to_complement.end()) {
+        return cheapest_edge_from_terminal_set_it->second;
     }
+    DistanceToTerminal cheapest_edge_from_terminal_set;
+    for_each_set_bit(
+        terminals, _grid.num_terminals(), [&](TerminalIndex contained) {
+            auto const contained_point = _grid.to_coordinates(_grid.get_terminals().at(contained).indices);
+            for_each_set_bit(
+                ~terminals, _grid.num_terminals(), [&](TerminalIndex not_contained) {
+                    auto const distance = _grid.get_distance(
+                        _grid.get_terminals().at(not_contained), contained_point
+                    );
+                    if (distance < cheapest_edge_from_terminal_set.distance) {
+                        cheapest_edge_from_terminal_set.distance = distance;
+                        cheapest_edge_from_terminal_set.terminal = not_contained;
+                    }
+                }
+            );
+        }
+    );
+    _cheapest_edge_to_complement.insert({terminals, cheapest_edge_from_terminal_set});
     return cheapest_edge_from_terminal_set;
 }
 

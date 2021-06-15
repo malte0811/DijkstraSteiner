@@ -9,8 +9,7 @@ add_executable(DijkstraSteiner
     src/main.cpp
     src/HananGrid.h src/HananGrid.cpp
     src/DijkstraSteiner.h
-    src/LabelMap.h
-    src/TypeDefs.h
+        src/TypeDefs.h
     src/GridPoint.h
     src/future_costs/NullFutureCost.h
     src/future_costs/BBFutureCost.h src/future_costs/BBFutureCost.cpp
