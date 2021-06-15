@@ -9,14 +9,14 @@ MSTFutureCost::MSTFutureCost(HananGrid const& grid) :
     _known_tree_costs(1 << (grid.get_terminals().size() - 1), invalid_cost) {
     auto const num_terminals = grid.get_terminals().size();
     for (TerminalIndex index_a = 0; index_a < num_terminals; ++index_a) {
-        _costs.at(index_a) = get_distances_to_terminals(grid.get_terminals().at(index_a));
+        _costs.at(index_a) = grid.get_distances_to_terminals(grid.get_terminals().at(index_a));
     }
 }
 
 Cost MSTFutureCost::operator()(Label const& label) const {
     // Compute edges to add to form a 1-tree with label.first as "1"
     if (label.first.global_index != _vertex_for_cached_distances) {
-        _cached_distances = get_distances_to_terminals(label.first);
+        _cached_distances = _grid.get_distances_to_terminals(label.first);
         _vertex_for_cached_distances = label.first.global_index;
     }
     Cost min_edge = invalid_cost;
@@ -95,24 +95,4 @@ Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {
         }
     }
     return total_cost;
-}
-
-auto MSTFutureCost::get_distances_to_terminals(GridPoint from) const -> SingleVertexDistances {
-    SingleVertexDistances result;
-    auto const center = _grid.to_coordinates(from.indices);
-    for (TerminalIndex other = 0; other < _grid.num_terminals(); ++other) {
-        result.at(other) = get_distance(_grid.get_terminals().at(other), center);
-    }
-    return result;
-}
-
-Cost MSTFutureCost::get_distance(GridPoint const& grid_point_a, Point const& point_b) const {
-    auto const point_a = _grid.to_coordinates(grid_point_a.indices);
-    Cost terminal_distance = 0;
-    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
-        terminal_distance += std::abs(
-            static_cast<int>(point_a.at(dimension)) - static_cast<int>(point_b.at(dimension))
-        );
-    }
-    return terminal_distance;
 }

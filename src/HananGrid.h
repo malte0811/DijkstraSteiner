@@ -45,6 +45,8 @@ private:
 
 class HananGrid {
 public:
+    using SingleVertexDistances = std::array<Cost, max_num_terminals>;
+
     static std::optional<HananGrid> read_from_stream(std::istream& in);
 
     HananGrid(std::vector<Point> const& points);
@@ -57,13 +59,20 @@ public:
     }
 
     TerminalIndex num_terminals() const {
-       return _terminals.size();
+        return _terminals.size();
+    }
+
+    TerminalIndex num_non_root_terminals() const {
+       return num_terminals() - 1;
     }
 
     VertexIndex num_vertices() const;
 
     Point to_coordinates(GridPoint::Coordinates const& grid_point) const;
 
+    SingleVertexDistances get_distances_to_terminals(GridPoint from) const;
+
+    Cost get_distance(GridPoint const& point_a, Point const& point_b) const;
 private:
     std::array<AxisGrid, num_dimensions> _axis_grids;
     std::vector<GridPoint> _terminals;

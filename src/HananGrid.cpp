@@ -95,3 +95,23 @@ VertexIndex HananGrid::num_vertices() const {
     }
     return result;
 }
+
+auto HananGrid::get_distances_to_terminals(GridPoint from) const -> SingleVertexDistances {
+    SingleVertexDistances result;
+    auto const center = to_coordinates(from.indices);
+    for (TerminalIndex other = 0; other < num_terminals(); ++other) {
+        result.at(other) = get_distance(get_terminals().at(other), center);
+    }
+    return result;
+}
+
+Cost HananGrid::get_distance(GridPoint const& grid_point_a, Point const& point_b) const {
+    auto const point_a = to_coordinates(grid_point_a.indices);
+    Cost terminal_distance = 0;
+    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
+        terminal_distance += std::abs(
+            static_cast<int>(point_a.at(dimension)) - static_cast<int>(point_b.at(dimension))
+        );
+    }
+    return terminal_distance;
+}

@@ -27,7 +27,11 @@ public:
         _future_cost{_grid},
         _fixed_values(_grid.num_vertices()),
         _best_cost_bounds(_grid, std::numeric_limits<Cost>::max()),
-        _is_fixed(_grid, false) {}
+        _is_fixed(_grid, false),
+        _lemma_15_subsets(1ul << _grid.num_non_root_terminals()),
+        // Divide by 2: Still larger than any cost we care about, and we can add two without overflow
+        _lemma_15_bounds(1ul << _grid.num_non_root_terminals(), std::numeric_limits<Cost>::max() / 2),
+        _cheapest_edge_to_complement(1 << _grid.num_non_root_terminals()) {}
 
     [[nodiscard]] Cost get_optimum_cost();
 
@@ -41,6 +45,11 @@ private:
         }
     };
 
+    struct DistanceToTerminal {
+        Cost distance = std::numeric_limits<Cost>::max();
+        TerminalIndex terminal = 0;
+    };
+
     void init();
 
     [[nodiscard]] Label get_full_tree_label() const;
@@ -50,6 +59,10 @@ private:
     template<SubsetConsumer Consumer>
     void for_each_disjoint_fixed_sink_set(Label const& base_label, Consumer out) const;
 
+    void update_lemma_15_data_for(Label const& label, Cost label_cost);
+
+    DistanceToTerminal get_closest_terminal_in_complement(TerminalSubset const& terminals) const;
+
     bool _started = false;
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
@@ -57,6 +70,9 @@ private:
     std::vector<std::vector<std::pair<TerminalSubset, Cost>>> _fixed_values;
     LabelMap<Cost> _best_cost_bounds;
     LabelMap<bool> _is_fixed;
+    std::vector<TerminalSubset> _lemma_15_subsets;
+    std::vector<Cost> _lemma_15_bounds;
+    std::vector<DistanceToTerminal> mutable _cheapest_edge_to_complement;
     Cost _upper_cost_bound = 0;
 };
 
@@ -103,6 +119,12 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
         }
         _is_fixed.set(next_label, true);
         auto const cost_here = _best_cost_bounds.get(next_label);
+        auto& lemma_bound = _lemma_15_bounds.at(next_label.second.to_ulong());
+        if (lemma_bound < cost_here) {
+            continue;
+        }
+        update_lemma_15_data_for(next_label, cost_here);
+
         _fixed_values.at(next_label.first.global_index).push_back({next_label.second, cost_here});
         _grid.for_each_neighbor(
             next_label.first, [&](GridPoint neighbor, Cost edge_cost) {
@@ -125,6 +147,10 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
 template<FutureCost FC>
 void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_to_label) {
     if (cost_to_label > _upper_cost_bound) {
+        return;
+    }
+    auto const specific_upper_bound = _lemma_15_bounds.at(label.second.to_ulong());
+    if (cost_to_label > specific_upper_bound) {
         return;
     }
     auto const cost_bound = _best_cost_bounds.get(label);
@@ -179,6 +205,53 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
             }
         }
     }
+}
+
+template<FutureCost FC>
+void DijkstraSteiner<FC>::update_lemma_15_data_for(Label const& label, Cost const label_cost) {
+    DistanceToTerminal cheapest = get_closest_terminal_in_complement(label.second);
+    auto const extra_point = _grid.to_coordinates(label.first.indices);
+    for_each_set_bit(
+        ~label.second, _grid.num_terminals(), [&](TerminalIndex not_contained) {
+            auto const distance = _grid.get_distance(_grid.get_terminals().at(not_contained), extra_point);
+            if (distance < cheapest.distance) {
+                cheapest.distance = distance;
+                cheapest.terminal = not_contained;
+            }
+        }
+    );
+    auto const new_bound = cheapest.distance + label_cost;
+    auto& lemma_bound = _lemma_15_bounds.at(label.second.to_ulong());
+    if (new_bound < lemma_bound) {
+        lemma_bound = new_bound;
+        _lemma_15_subsets.at(label.second.to_ulong()) = TerminalSubset{1ul << cheapest.terminal};
+    }
+}
+
+template<FutureCost FC>
+auto DijkstraSteiner<FC>::get_closest_terminal_in_complement(
+    TerminalSubset const& terminals
+) const -> DistanceToTerminal {
+    auto& cheapest_edge_from_terminal_set = _cheapest_edge_to_complement.at(terminals.to_ulong());
+    if (cheapest_edge_from_terminal_set.distance == std::numeric_limits<Cost>::max()) {
+        for_each_set_bit(
+            terminals, _grid.num_terminals(), [&](TerminalIndex contained) {
+                auto const contained_point = _grid.to_coordinates(_grid.get_terminals().at(contained).indices);
+                for_each_set_bit(
+                    ~terminals, _grid.num_terminals(), [&](TerminalIndex not_contained) {
+                        auto const distance = _grid.get_distance(
+                            _grid.get_terminals().at(not_contained), contained_point
+                        );
+                        if (distance < cheapest_edge_from_terminal_set.distance) {
+                            cheapest_edge_from_terminal_set.distance = distance;
+                            cheapest_edge_from_terminal_set.terminal = not_contained;
+                        }
+                    }
+                );
+            }
+        );
+    }
+    return cheapest_edge_from_terminal_set;
 }
 
 #endif
