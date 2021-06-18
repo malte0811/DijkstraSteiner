@@ -7,7 +7,7 @@
 
 class MSTFutureCost {
 public:
-    explicit MSTFutureCost(HananGrid const& grid);
+    explicit MSTFutureCost(HananGrid const& grid, SubsetIndexer& indexer);
 
     Cost operator()(Label const& label) const;
 
@@ -20,8 +20,7 @@ private:
 
     HananGrid const& _grid;
     std::array<SingleVertexDistances, max_num_terminals> _costs{};
-    // Index is the bitset in the corresponding label
-    std::unordered_map<TerminalSubset, Cost> mutable _known_tree_costs;
+    SubsetMap<Cost> mutable _known_tree_costs;
     VertexIndex mutable _vertex_for_cached_distances = std::numeric_limits<VertexIndex>::max();
     SingleVertexDistances mutable _cached_distances{};
 };

@@ -6,9 +6,9 @@
 template<FutureCost CostA, FutureCost CostB>
 class MaxFutureCost {
 public:
-    explicit MaxFutureCost(HananGrid const& grid) :
-        _cost_a{grid},
-        _cost_b{grid} {}
+    explicit MaxFutureCost(HananGrid const& grid, SubsetIndexer& indexer) :
+        _cost_a{grid, indexer},
+        _cost_b{grid, indexer} {}
 
     Cost operator()(Label const& label) const {
         return std::max(_cost_a(label), _cost_b(label));

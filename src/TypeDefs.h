@@ -12,6 +12,7 @@ using Coord = std::uint32_t;
 std::size_t constexpr num_dimensions = 3;
 using Cost = Coord;
 using Point = std::array<Coord, num_dimensions>;
+auto constexpr invalid_cost = std::numeric_limits<Cost>::max();
 
 using TerminalIndex = std::uint8_t;
 TerminalIndex constexpr max_num_terminals = 20;

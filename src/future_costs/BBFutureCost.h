@@ -3,10 +3,12 @@
 
 #include "FutureCost.h"
 
-struct BBFutureCost {
-    HananGrid const& grid;
-
+class BBFutureCost {
+public:
+    BBFutureCost(HananGrid const& grid, SubsetIndexer&): _grid(grid) {}
     Cost operator()(Label const& label) const;
+private:
+    HananGrid const& _grid;
 };
 
 static_assert(FutureCost<BBFutureCost>);

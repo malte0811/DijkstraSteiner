@@ -108,4 +108,6 @@ inline Coord AxisGrid::coord_for_index(TerminalIndex index) const {
     return _sorted_positions.at(index);
 }
 
+using Label = std::pair<GridPoint, TerminalSubset>;
+
 #endif

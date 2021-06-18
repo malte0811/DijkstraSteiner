@@ -2,12 +2,11 @@
 #define FUTURE_COST_H
 
 #include "../HananGrid.h"
-
-using Label = std::pair<GridPoint, TerminalSubset>;
+#include "../SubsetIndexer.h"
 
 template<typename T>
-concept FutureCost = requires(T const a, Label l, HananGrid grid) {
-    T{grid};
+concept FutureCost = requires(T const a, Label l, HananGrid const grid, SubsetIndexer indexer) {
+    T{grid, indexer};
     { a(l) } -> convertible_to<Cost>;
 };
 

@@ -2,9 +2,9 @@
 #include <limits>
 #include <cassert>
 
-auto constexpr invalid_cost = std::numeric_limits<Cost>::max();
-
-MSTFutureCost::MSTFutureCost(HananGrid const& grid) : _grid(grid) {
+MSTFutureCost::MSTFutureCost(HananGrid const& grid, SubsetIndexer& indexer) :
+    _grid(grid),
+    _known_tree_costs(indexer, invalid_cost) {
     for (TerminalIndex index_a = 0; index_a < grid.num_terminals(); ++index_a) {
         _costs.at(index_a) = grid.get_distances_to_terminals(grid.get_terminals().at(index_a));
     }
@@ -46,14 +46,11 @@ Cost MSTFutureCost::operator()(Label const& label) const {
 
 Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
     assert(not label.test(_grid.num_terminals() - 1));
-    auto const known_it = _known_tree_costs.find(label);
-    if (known_it != _known_tree_costs.end()) {
-        return known_it->second;
-    } else {
-        auto const cost = compute_tree_cost(label);
-        _known_tree_costs.emplace(label, cost);
-        return cost;
+    auto& cost = _known_tree_costs.get(label);
+    if (cost == invalid_cost) {
+        cost = compute_tree_cost(label);
     }
+    return cost;
 }
 
 Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {

@@ -15,7 +15,7 @@ Cost PrimSteinerHeuristic::compute_upper_bound() {
 
 void PrimSteinerHeuristic::add_terminal_to_tree(TerminalIndex index) {
     std::vector<VertexIndex> predecessors(_grid.num_vertices());
-    std::vector<Cost> cost_bounds(_grid.num_vertices(), std::numeric_limits<Cost>::max());
+    std::vector<Cost> cost_bounds(_grid.num_vertices(), invalid_cost);
     struct HeapEntry {
         Cost path_length;
         GridPoint vertex_to_fix;
