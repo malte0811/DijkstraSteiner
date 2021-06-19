@@ -44,7 +44,7 @@ Cost MSTFutureCost::operator()(Label const& label) const {
 
 Cost MSTFutureCost::get_tree_cost(TerminalSubset const& label) const {
     assert(not label.test(_grid.num_terminals() - 1));
-    auto& cost = _known_tree_costs.get(label);
+    auto& cost = _known_tree_costs.get_or_insert(label);
     if (cost == invalid_cost) {
         cost = compute_tree_cost(label);
     }
