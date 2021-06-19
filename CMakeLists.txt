@@ -14,6 +14,7 @@ add_executable(DijkstraSteiner
     src/future_costs/NullFutureCost.h
     src/future_costs/BBFutureCost.h src/future_costs/BBFutureCost.cpp
     src/future_costs/MSTFutureCost.h src/future_costs/MSTFutureCost.cpp
+    src/SubsetIndexer.h
         src/PrimSteinerHeuristic.cpp src/PrimSteinerHeuristic.h)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

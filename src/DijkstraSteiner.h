@@ -232,12 +232,11 @@ auto DijkstraSteiner<FC>::get_closest_terminal_in_complement(
     }
     for_each_set_bit(
         terminals, _grid.num_terminals(), [&](TerminalIndex contained) {
-            auto const contained_point = _grid.to_coordinates(_grid.get_terminals().at(contained).indices);
+            auto const contained_index = _grid.get_terminals().at(contained).global_index;
+            auto const& distances = _grid.get_distances_to_terminals(contained_index);
             for_each_set_bit(
                 ~terminals, _grid.num_terminals(), [&](TerminalIndex not_contained) {
-                    auto const distance = _grid.get_distance(
-                        _grid.get_terminals().at(not_contained), contained_point
-                    );
+                    auto const distance = distances.at(not_contained);;
                     if (distance < cheapest_edge_from_terminal_set.distance) {
                         cheapest_edge_from_terminal_set.distance = distance;
                         cheapest_edge_from_terminal_set.terminal = not_contained;
