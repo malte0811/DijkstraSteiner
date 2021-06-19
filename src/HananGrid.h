@@ -70,12 +70,17 @@ public:
 
     [[nodiscard]] Point to_coordinates(GridPoint::Coordinates const& grid_point) const;
 
-    [[nodiscard]] SingleVertexDistances get_distances_to_terminals(GridPoint from) const;
+    [[nodiscard]] SingleVertexDistances const& get_distances_to_terminals(VertexIndex from) const;
 
     [[nodiscard]] Cost get_distance(GridPoint const& point_a, Point const& point_b) const;
+
+    [[nodiscard]] bool next(GridPoint::Coordinates& in) const;
 private:
+    [[nodiscard]] SingleVertexDistances compute_distances_to_terminals(GridPoint::Coordinates from) const;
+
     std::array<AxisGrid, num_dimensions> _axis_grids;
     std::vector<GridPoint> _terminals;
+    std::vector<SingleVertexDistances> _vertex_terminal_distances;
 };
 
 template<NeighborVisitor Visitor>
@@ -106,6 +111,10 @@ inline Point HananGrid::to_coordinates(GridPoint::Coordinates const& grid_point)
 
 inline Coord AxisGrid::coord_for_index(TerminalIndex index) const {
     return _sorted_positions.at(index);
+}
+
+inline auto HananGrid::get_distances_to_terminals(VertexIndex const from) const -> SingleVertexDistances const& {
+    return _vertex_terminal_distances.at(from);
 }
 
 using Label = std::pair<GridPoint, TerminalSubset>;

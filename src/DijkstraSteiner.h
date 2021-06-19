@@ -186,8 +186,8 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
                 current_set = TerminalSubset{temp};
             }
             current_set &= bitmask;
-            // Do not call for empty set, as specified in the algorithm
             Label other_label{base_label.first, current_set};
+            // Do not call for empty set, as specified in the algorithm
             if (current_set.any() and _fixed.get(other_label)) {
                 out(current_set, _best_cost_bounds.get(other_label));
             }
@@ -204,10 +204,10 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
 template<FutureCost FC>
 void DijkstraSteiner<FC>::update_lemma_15_data_for(Label const& label, Cost const label_cost) {
     DistanceToTerminal cheapest = get_closest_terminal_in_complement(label.second);
-    auto const extra_point = _grid.to_coordinates(label.first.indices);
+    auto const& distances = _grid.get_distances_to_terminals(label.first.global_index);
     for_each_set_bit(
         ~label.second, _grid.num_terminals(), [&](TerminalIndex not_contained) {
-            auto const distance = _grid.get_distance(_grid.get_terminals().at(not_contained), extra_point);
+            auto const distance = distances.at(not_contained);
             if (distance < cheapest.distance) {
                 cheapest.distance = distance;
                 cheapest.terminal = not_contained;

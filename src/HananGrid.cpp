@@ -71,13 +71,13 @@ std::optional<HananGrid> HananGrid::read_from_stream(std::istream& in) {
     return HananGrid(points);
 }
 
-HananGrid::HananGrid(std::vector<Point> const& points) {
+HananGrid::HananGrid(std::vector<Point> const& terminals) {
     VertexIndex pre_factor = 1;
     for (std::size_t dim = 0; dim < num_dimensions; ++dim) {
-        _axis_grids.at(dim) = AxisGrid(points, dim, pre_factor);
+        _axis_grids.at(dim) = AxisGrid(terminals, dim, pre_factor);
         pre_factor *= _axis_grids.at(dim).size();
     }
-    for (auto const point : points) {
+    for (auto const point : terminals) {
         GridPoint::Coordinates coords;
         VertexIndex index = 0;
         for (std::size_t dim = 0; dim < num_dimensions; ++dim) {
@@ -86,6 +86,10 @@ HananGrid::HananGrid(std::vector<Point> const& points) {
         }
         _terminals.push_back({coords, index});
     }
+    GridPoint::Coordinates coords{};
+    do {
+        _vertex_terminal_distances.push_back(compute_distances_to_terminals(coords));
+    } while (next(coords));
 }
 
 VertexIndex HananGrid::num_vertices() const {
@@ -96,9 +100,9 @@ VertexIndex HananGrid::num_vertices() const {
     return result;
 }
 
-auto HananGrid::get_distances_to_terminals(GridPoint from) const -> SingleVertexDistances {
+auto HananGrid::compute_distances_to_terminals(GridPoint::Coordinates from) const -> SingleVertexDistances {
     SingleVertexDistances result;
-    auto const center = to_coordinates(from.indices);
+    auto const center = to_coordinates(from);
     for (TerminalIndex other = 0; other < num_terminals(); ++other) {
         result.at(other) = get_distance(get_terminals().at(other), center);
     }
@@ -114,4 +118,16 @@ Cost HananGrid::get_distance(GridPoint const& grid_point_a, Point const& point_b
         );
     }
     return terminal_distance;
+}
+
+bool HananGrid::next(GridPoint::Coordinates& in) const {
+    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
+        ++in.at(dimension);
+        if (in.at(dimension) == _axis_grids.at(dimension).size()) {
+            in.at(dimension) = 0;
+        } else {
+            return true;
+        }
+    }
+    return false;
 }

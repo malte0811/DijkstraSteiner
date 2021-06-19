@@ -19,10 +19,8 @@ private:
     Cost get_tree_cost(TerminalSubset const& not_contained_vertices) const;
 
     HananGrid const& _grid;
-    std::array<SingleVertexDistances, max_num_terminals> _costs{};
+    std::array<SingleVertexDistances, max_num_terminals> _terminal_distances{};
     SubsetMap<Cost> mutable _known_tree_costs;
-    VertexIndex mutable _vertex_for_cached_distances = std::numeric_limits<VertexIndex>::max();
-    SingleVertexDistances mutable _cached_distances{};
 };
 
 static_assert(FutureCost<MSTFutureCost>);

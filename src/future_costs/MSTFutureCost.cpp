@@ -6,21 +6,19 @@ MSTFutureCost::MSTFutureCost(HananGrid const& grid, SubsetIndexer& indexer) :
     _grid(grid),
     _known_tree_costs(indexer, invalid_cost) {
     for (TerminalIndex index_a = 0; index_a < grid.num_terminals(); ++index_a) {
-        _costs.at(index_a) = grid.get_distances_to_terminals(grid.get_terminals().at(index_a));
+        auto const vertex_index = grid.get_terminals().at(index_a).global_index;
+        _terminal_distances.at(index_a) = grid.get_distances_to_terminals(vertex_index);
     }
 }
 
 Cost MSTFutureCost::operator()(Label const& label) const {
     // Compute edges to add to form a 1-tree with label.first as "1"
-    if (label.first.global_index != _vertex_for_cached_distances) {
-        _cached_distances = _grid.get_distances_to_terminals(label.first);
-        _vertex_for_cached_distances = label.first.global_index;
-    }
     Cost min_edge = invalid_cost;
     Cost second_min_edge = invalid_cost;
+    auto const& distances = _grid.get_distances_to_terminals(label.first.global_index);
     for_each_set_bit(
         ~label.second, _grid.num_terminals(), [&](auto const set_bit) {
-            auto const cost = _cached_distances[set_bit];
+            auto const cost = distances[set_bit];
             if (cost < second_min_edge) {
                 if (cost <= min_edge) {
                     second_min_edge = min_edge;
@@ -86,7 +84,7 @@ Cost MSTFutureCost::compute_tree_cost(TerminalSubset const& label) const {
             for (std::size_t i = 0; i < num_terminals; ++i) {
                 auto const other_terminal_id = terminals_to_consider.at(i);
                 if (not is_connected.at(other_terminal_id)) {
-                    heap.push({_costs.at(new_terminal).at(other_terminal_id), other_terminal_id});
+                    heap.push({_terminal_distances.at(new_terminal).at(other_terminal_id), other_terminal_id});
                 }
             }
         }
