@@ -116,7 +116,8 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
         }
         is_fixed = true;
         auto const cost_here = _best_cost_bounds.get_or_default(next_label);
-        if (cost_here > _lemma_15_bounds.get_or_default(next_label.second)) {
+        auto const& lemma_15_bound = _lemma_15_bounds.get_or_default(next_label.second);
+        if (cost_here > lemma_15_bound) {
             continue;
         }
         update_lemma_15_data_for(next_label, cost_here);
@@ -128,10 +129,21 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
                 handle_candidate(neighbor_label, edge_cost + cost_here);
             }
         );
+        auto const lemma_15_set = _lemma_15_subsets.get_or_default(next_label.second);
         for_each_disjoint_fixed_sink_set(
             next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
                 assert((other_set & next_label.second).none());
-                Label union_label{next_label.first, next_label.second | other_set};
+                auto const other_lemma15_cost = _lemma_15_bounds.get_or_default(other_set);
+                auto const& other_label_15_set = _lemma_15_subsets.get_or_default(other_set);
+                auto const union_set = next_label.second | other_set;
+                auto& union_cost = _lemma_15_bounds.get_or_insert(union_set);
+                if (lemma_15_bound + other_lemma15_cost < union_cost and
+                    ((lemma_15_set & other_set).none() or (other_label_15_set & next_label.second).none())) {
+                    _lemma_15_subsets.get_or_insert(union_set) = (lemma_15_set | other_label_15_set) & ~union_set;
+                    union_cost = lemma_15_bound + other_lemma15_cost;
+                }
+
+                Label union_label{next_label.first, union_set};
                 handle_candidate(union_label, other_cost + cost_here);
             }
         );
