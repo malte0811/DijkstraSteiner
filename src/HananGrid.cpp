@@ -113,9 +113,8 @@ Cost HananGrid::get_distance(GridPoint const& grid_point_a, Point const& point_b
     auto const point_a = to_coordinates(grid_point_a.indices);
     Cost terminal_distance = 0;
     for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
-        terminal_distance += std::abs(
-            static_cast<int>(point_a.at(dimension)) - static_cast<int>(point_b.at(dimension))
-        );
+        auto const [min, max] = std::minmax(point_a.at(dimension), point_b.at(dimension));
+        terminal_distance += max - min;
     }
     return terminal_distance;
 }
