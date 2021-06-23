@@ -110,7 +110,7 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
             // future cost is 0 here
             return next_heap_element.cost_lower_bound;
         }
-        auto&& is_fixed = _fixed.get_or_insert(next_label);
+        auto&& is_fixed = _fixed.get_or_insert(next_label, true);
         if (is_fixed) {
             continue;
         }
@@ -133,10 +133,10 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
         for_each_disjoint_fixed_sink_set(
             next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
                 assert((other_set & next_label.second).none());
-                auto const other_lemma15_cost = _lemma_15_bounds.get_or_default(other_set);
+                auto const other_lemma15_cost = _lemma_15_bounds.get_or_default(other_set, true);
                 auto const& other_label_15_set = _lemma_15_subsets.get_or_default(other_set);
                 auto const union_set = next_label.second | other_set;
-                auto& union_cost = _lemma_15_bounds.get_or_insert(union_set);
+                auto& union_cost = _lemma_15_bounds.get_or_insert(union_set, true);
                 if (lemma_15_bound + other_lemma15_cost < union_cost and
                     ((lemma_15_set & other_set).none() or (other_label_15_set & next_label.second).none())) {
                     _lemma_15_subsets.get_or_insert(union_set) = (lemma_15_set | other_label_15_set) & ~union_set;
@@ -157,12 +157,12 @@ void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_
     if (cost_to_label > _upper_cost_bound) {
         return;
     }
-    if (cost_to_label > _lemma_15_bounds.get_or_default(label.second)) {
+    if (cost_to_label > _lemma_15_bounds.get_or_default(label.second, true)) {
         return;
     }
     auto& cost_bound = _best_cost_bounds.get_or_insert(label);
     if (cost_bound > cost_to_label) {
-        assert(not _fixed.get(label));
+        assert(not _fixed.get_or_default(label));
         cost_bound = cost_to_label;
         auto const with_fc = cost_to_label + _future_cost(label);
         if (with_fc > _upper_cost_bound) {
@@ -200,7 +200,7 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
             current_set &= bitmask;
             Label other_label{base_label.first, current_set};
             // Do not call for empty set, as specified in the algorithm
-            if (current_set.any() and _fixed.get_or_default(other_label)) {
+            if (current_set.any() and _fixed.get_or_default(other_label, true)) {
                 out(current_set, _best_cost_bounds.get_or_default(other_label));
             }
         } while (current_set.any());
@@ -227,7 +227,7 @@ void DijkstraSteiner<FC>::update_lemma_15_data_for(Label const& label, Cost cons
         }
     );
     auto const new_bound = cheapest.distance + label_cost;
-    auto& lemma_bound = _lemma_15_bounds.get_or_insert(label.second);
+    auto& lemma_bound = _lemma_15_bounds.get_or_insert(label.second, true);
     if (new_bound < lemma_bound) {
         lemma_bound = new_bound;
         _lemma_15_subsets.get_or_insert(label.second) = TerminalSubset{1ul << cheapest.terminal};
