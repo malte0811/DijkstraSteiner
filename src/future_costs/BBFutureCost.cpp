@@ -10,11 +10,5 @@ Cost BBFutureCost::operator()(Label const& label) const {
             grid_max = terminals[terminal].max(grid_max);
         }
     );
-    auto const min_coords = _grid.to_coordinates(grid_min);
-    auto const max_coords = _grid.to_coordinates(grid_max);
-    Cost result = 0;
-    for (std::size_t dim = 0; dim < num_dimensions; ++dim) {
-        result += max_coords.at(dim) - min_coords.at(dim);
-    }
-    return result;
+    return HananGrid::get_distance(_grid.to_coordinates(grid_min), _grid.to_coordinates(grid_max));
 }

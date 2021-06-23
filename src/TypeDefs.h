@@ -19,6 +19,7 @@ TerminalIndex constexpr max_num_terminals = 20;
 using TerminalSubset = std::bitset<max_num_terminals>;
 
 using VertexIndex = std::uint16_t;
+// Assert that VertexIndex is large enough to hold the maximum number of grid vertices
 static_assert(
     []() constexpr -> std::size_t {
         auto const as_size_t = static_cast<std::size_t>(max_num_terminals);
@@ -32,8 +33,11 @@ static_assert(
 template<class T>
 using MinHeap = std::priority_queue<T, std::vector<T>, std::greater<T>>;
 
-// TODO remove once I have a working libstdc++ for C++20
-// TODO do we even have one at the institute?
+// Define convertible_to when compiling against an older standard library
+#ifndef __cpp_lib_concepts
+
+namespace std {
+
 // copied from cppreference
 template<class From, class To>
 concept convertible_to =
@@ -41,12 +45,16 @@ std::is_convertible_v<From, To> && requires(std::add_rvalue_reference_t<From> (&
     static_cast<To>(f());
 };
 
+}
+
+#endif
+
 template<class Callback>
 void for_each_set_bit(
     TerminalSubset const& set, std::size_t num_terminals, Callback const& cb
 ) {
     std::uint64_t bitset = set.to_ulong() & ((1 << num_terminals) - 1);
-    // Based on https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
+    // Copied from https://lemire.me/blog/2018/02/21/iterating-over-set-bits-quickly/
     while (bitset != 0) {
         std::uint64_t t = bitset & -bitset;
         int r = __builtin_ctzl(bitset);

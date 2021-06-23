@@ -7,7 +7,7 @@
 template<typename T>
 concept FutureCost = requires(T const a, Label l, HananGrid const grid, SubsetIndexer indexer) {
     T{grid, indexer};
-    { a(l) } -> convertible_to<Cost>;
+    { a(l) } -> std::convertible_to<Cost>;
 };
 
 #endif

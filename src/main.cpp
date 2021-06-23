@@ -1,7 +1,7 @@
 #include <iostream>
 #include "DijkstraSteiner.h"
 #include "future_costs/BBFutureCost.h"
-#include "future_costs/MSTFutureCost.h"
+#include "future_costs/OneTreeFutureCost.h"
 #include "future_costs/MaxFutureCost.h"
 #include <fstream>
 
@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
     if (not optional_grid.has_value()) {
         return 1;
     }
-    DijkstraSteiner<MaxFutureCost<MSTFutureCost, BBFutureCost>> alg(optional_grid.value());
+    DijkstraSteiner<MaxFutureCost<OneTreeFutureCost, BBFutureCost>> alg(optional_grid.value());
     auto const cost = alg.get_optimum_cost();
     std::cout << cost << '\n';
 }

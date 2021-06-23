@@ -1,7 +1,6 @@
 #include <cassert>
 #include <algorithm>
 #include <numeric>
-#include <cstdlib>
 #include <iostream>
 #include "PrimSteinerHeuristic.h"
 
@@ -22,7 +21,7 @@ Cost PrimSteinerHeuristic::compute_upper_bound() {
         _is_terminal_in_tree.at(next_terminal) = true;
     }
     return std::accumulate(_tree_edges.begin(), _tree_edges.end(), 0, [](Cost a, GridEdge const& b) {
-        return a + length(b);
+        return a + HananGrid::get_distance(b.first, b.second);
     });
 }
 
@@ -67,16 +66,6 @@ Point PrimSteinerHeuristic::get_closest_sp_point(Point const& p, GridEdge const&
 }
 
 Cost PrimSteinerHeuristic::distance_to_sp(Point const& p, GridEdge const& edge) {
-    return length({p, get_closest_sp_point(p, edge)});
+    return HananGrid::get_distance(p, get_closest_sp_point(p, edge));
 }
 
-Cost PrimSteinerHeuristic::length(GridEdge const& edge) {
-    Cost result = 0;
-    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
-        auto const[min, max] = std::minmax(
-                edge.first.at(dimension), edge.second.at(dimension)
-        );
-        result += max - min;
-    }
-    return result;
-}

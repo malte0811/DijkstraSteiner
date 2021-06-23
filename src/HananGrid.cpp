@@ -26,12 +26,9 @@ AxisGrid::AxisGrid(
 }
 
 TerminalIndex AxisGrid::index_for_coord(Coord const pos) const {
-    for (TerminalIndex i = 0; i < _sorted_positions.size(); ++i) {
-        if (pos == _sorted_positions.at(i)) {
-            return i;
-        }
-    }
-    throw std::runtime_error("Invalid coordinate?");
+    auto const position_it = std::find(_sorted_positions.begin(), _sorted_positions.end(), pos);
+    assert(position_it != _sorted_positions.end());
+    return std::distance(_sorted_positions.begin(), position_it);
 }
 
 std::optional<Point> read_point(std::istream& in) {
@@ -110,13 +107,7 @@ auto HananGrid::compute_distances_to_terminals(GridPoint::Coordinates from) cons
 }
 
 Cost HananGrid::get_distance(GridPoint const& grid_point_a, Point const& point_b) const {
-    auto const point_a = to_coordinates(grid_point_a.indices);
-    Cost terminal_distance = 0;
-    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
-        auto const [min, max] = std::minmax(point_a.at(dimension), point_b.at(dimension));
-        terminal_distance += max - min;
-    }
-    return terminal_distance;
+    return get_distance(to_coordinates(grid_point_a.indices), point_b);
 }
 
 bool HananGrid::next(GridPoint::Coordinates& in) const {
@@ -129,4 +120,13 @@ bool HananGrid::next(GridPoint::Coordinates& in) const {
         }
     }
     return false;
+}
+
+Cost HananGrid::get_distance(Point const& a, Point const& b) {
+    Cost result = 0;
+    for (std::size_t dimension = 0; dimension < num_dimensions; ++dimension) {
+        auto const[min, max] = std::minmax(a.at(dimension), b.at(dimension));
+        result += max - min;
+    }
+    return result;
 }

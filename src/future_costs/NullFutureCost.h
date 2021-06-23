@@ -6,9 +6,7 @@
 struct NullFutureCost {
     NullFutureCost(HananGrid const&, SubsetIndexer&) {}
 
-    Cost operator()(Label const&, bool) const {
-        return 0;
-    }
+    Cost operator()(Label const&, bool) const { return 0; }
 };
 
 static_assert(FutureCost<NullFutureCost>);

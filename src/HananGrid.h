@@ -12,8 +12,7 @@ concept NeighborVisitor = requires(V v, GridPoint neighbor, Cost cost) {
 };
 
 /**
- * Stores a single axis of the Hana grid. This is not intended for standalone use,
- * but as a part of HananGrid
+ * Stores a single axis of the Hana grid. This is not intended for standalone use, but as a part of HananGrid
  */
 class AxisGrid {
 public:
@@ -27,16 +26,12 @@ public:
 
     [[nodiscard]] Coord coord_for_index(TerminalIndex index) const;
 
-    [[nodiscard]] std::size_t size() const {
-        return _sorted_positions.size();
-    }
+    [[nodiscard]] std::size_t size() const { return _sorted_positions.size(); }
 
     template<NeighborVisitor Visitor>
     void for_each_neighbor(GridPoint here, std::size_t axis, Visitor const& visitor) const;
 
-    [[nodiscard]] VertexIndex global_index_factor() const {
-        return _index_factor;
-    }
+    [[nodiscard]] VertexIndex global_index_factor() const { return _index_factor; }
 private:
     std::vector<Coord> _differences;
     std::vector<Coord> _sorted_positions;
@@ -49,22 +44,18 @@ public:
 
     static std::optional<HananGrid> read_from_stream(std::istream& in);
 
+    static Cost get_distance(Point const& a, Point const& b);
+
     explicit HananGrid(std::vector<Point> const& points);
 
     template<NeighborVisitor Visitor>
     void for_each_neighbor(GridPoint here, Visitor const& visitor) const;
 
-    [[nodiscard]] auto const& get_terminals() const {
-        return _terminals;
-    }
+    [[nodiscard]] auto const& get_terminals() const { return _terminals; }
 
-    [[nodiscard]] TerminalIndex num_terminals() const {
-        return _terminals.size();
-    }
+    [[nodiscard]] TerminalIndex num_terminals() const { return _terminals.size(); }
 
-    [[nodiscard]] TerminalIndex num_non_root_terminals() const {
-       return num_terminals() - 1;
-    }
+    [[nodiscard]] TerminalIndex num_non_root_terminals() const { return num_terminals() - 1; }
 
     [[nodiscard]] VertexIndex num_vertices() const;
 
@@ -74,6 +65,7 @@ public:
 
     [[nodiscard]] Cost get_distance(GridPoint const& point_a, Point const& point_b) const;
 
+    /// Replaces "in" with the next grid point by global index, and returns false if there isn't any
     [[nodiscard]] bool next(GridPoint::Coordinates& in) const;
 private:
     [[nodiscard]] SingleVertexDistances compute_distances_to_terminals(GridPoint::Coordinates from) const;

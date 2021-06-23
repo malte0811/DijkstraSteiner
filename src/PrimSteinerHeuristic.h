@@ -4,6 +4,10 @@
 #include "HananGrid.h"
 #include <utility>
 
+/**
+ * The Prim-Steiner heuristic described in exercise 8.1. Worst-case ratio is the Steiner ratio, but in practice the
+ * result typically is much better
+ */
 class PrimSteinerHeuristic {
 public:
     explicit PrimSteinerHeuristic(HananGrid const& grid);
@@ -23,7 +27,7 @@ private:
      * Computes a terminal currently not contained in the tree and an edge ID
      * such that distance_to_sp(terminal, edge) is minimum
      */
-    std::pair<TerminalIndex, std::size_t> get_closest_terminal_and_edge() const;
+    [[nodiscard]] std::pair<TerminalIndex, std::size_t> get_closest_terminal_and_edge() const;
 
     /**
      * Computes argmin{dist(p, v) | v \in SP(edge)}
@@ -34,8 +38,6 @@ private:
      * Computes min{dist(p, v) | v \in SP(edge)}
      */
     static Cost distance_to_sp(Point const& p, GridEdge const& edge);
-
-    static Cost length(GridEdge const& edge);
 
     std::vector<bool> _is_terminal_in_tree;
     std::vector<GridEdge> _tree_edges;

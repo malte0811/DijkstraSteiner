@@ -29,7 +29,8 @@ public:
         _best_cost_bounds(_grid, _indexer, invalid_cost),
         _fixed(_grid, _indexer, false),
         _lemma_15_subsets(_indexer, TerminalSubset{0}),
-        _lemma_15_bounds(_indexer, invalid_cost),
+        // By using half the maximum value we make sure that we can always add two entries of this map without overflow
+        _lemma_15_bounds(_indexer, invalid_cost / 2),
         _cheapest_edge_to_complement(_indexer) {}
 
     [[nodiscard]] Cost get_optimum_cost();
@@ -51,18 +52,27 @@ private:
 
     void init();
 
+    /// Computes the label corresponding to the Steiner tree on all terminals
     [[nodiscard]] Label get_full_tree_label() const;
 
+    /**
+     * Adds the given candidate to the heap unless the label is already fixed, or we can prove that the candidate can
+     * not contribute to an optimum tree.
+     */
     void handle_candidate(Label const& label, Cost const& cost_to_label);
 
+    /**
+     * Calls the consumer with each subset disjoint to base_label.second for which the label with the same special
+     * vertex has already been fixed, and the cost of this label
+     */
     template<SubsetConsumer Consumer>
     void for_each_disjoint_fixed_sink_set(Label const& base_label, Consumer out) const;
 
+    /// Updates the data used to prune nodes based on Lemma 15 when the cost of the given label is fixed.
     void update_lemma_15_data_for(Label const& label, Cost label_cost);
 
     [[nodiscard]] DistanceToTerminal get_closest_terminal_in_complement(TerminalSubset const& terminals) const;
 
-    bool _started = false;
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
     SubsetIndexer _indexer;
@@ -78,8 +88,6 @@ private:
 
 template<FutureCost FC>
 void DijkstraSteiner<FC>::init() {
-    assert(not _started);
-    _started = true;
     _upper_cost_bound = PrimSteinerHeuristic{_grid}.compute_upper_bound();
     for (std::size_t terminal_id = 0; terminal_id < _grid.num_non_root_terminals(); ++terminal_id) {
         TerminalSubset terminals;
@@ -90,10 +98,7 @@ void DijkstraSteiner<FC>::init() {
 
 template<FutureCost FC>
 Label DijkstraSteiner<FC>::get_full_tree_label() const {
-    return Label{
-        _grid.get_terminals().back(),
-        TerminalSubset{(1ul << _grid.num_non_root_terminals()) - 1}
-    };
+    return Label{_grid.get_terminals().back(), TerminalSubset{(1ul << _grid.num_non_root_terminals()) - 1}};
 }
 
 template<FutureCost FC>
@@ -111,15 +116,11 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
             return next_heap_element.cost_lower_bound;
         }
         auto&& is_fixed = _fixed.get_or_insert(next_label, true);
-        if (is_fixed) {
-            continue;
-        }
+        if (is_fixed) { continue; }
         is_fixed = true;
         auto const cost_here = _best_cost_bounds.get_or_default(next_label);
         auto const& lemma_15_bound = _lemma_15_bounds.get_or_default(next_label.second);
-        if (cost_here > lemma_15_bound) {
-            continue;
-        }
+        if (cost_here > lemma_15_bound) { continue; }
         update_lemma_15_data_for(next_label, cost_here);
 
         _fixed_values.at(next_label.first.global_index).push_back({next_label.second, cost_here});
@@ -133,14 +134,15 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
         for_each_disjoint_fixed_sink_set(
             next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
                 assert((other_set & next_label.second).none());
-                auto const other_lemma15_cost = _lemma_15_bounds.get_or_default(other_set, true);
+                // Second type of update for the bounds used in Lemma 15, as described in Section 5
+                auto const other_lemma15_bound = _lemma_15_bounds.get_or_default(other_set, true);
                 auto const& other_label_15_set = _lemma_15_subsets.get_or_default(other_set);
                 auto const union_set = next_label.second | other_set;
                 auto& union_cost = _lemma_15_bounds.get_or_insert(union_set, true);
-                if (lemma_15_bound + other_lemma15_cost < union_cost and
+                if (lemma_15_bound + other_lemma15_bound < union_cost and
                     ((lemma_15_set & other_set).none() or (other_label_15_set & next_label.second).none())) {
                     _lemma_15_subsets.get_or_insert(union_set) = (lemma_15_set | other_label_15_set) & ~union_set;
-                    union_cost = lemma_15_bound + other_lemma15_cost;
+                    union_cost = lemma_15_bound + other_lemma15_bound;
                 }
 
                 Label union_label{next_label.first, union_set};
@@ -154,21 +156,16 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
 
 template<FutureCost FC>
 void DijkstraSteiner<FC>::handle_candidate(Label const& label, Cost const& cost_to_label) {
-    if (cost_to_label > _upper_cost_bound) {
-        return;
-    }
-    if (cost_to_label > _lemma_15_bounds.get_or_default(label.second, true)) {
-        return;
-    }
+    // Do not add if already above the global bound without considering future costs
+    if (cost_to_label > _upper_cost_bound) { return; }
+    if (cost_to_label > _lemma_15_bounds.get_or_default(label.second, true)) { return; }
     auto& cost_bound = _best_cost_bounds.get_or_insert(label);
-    if (cost_bound > cost_to_label) {
+    if (cost_to_label < cost_bound) {
         assert(not _fixed.get_or_default(label));
         cost_bound = cost_to_label;
-        auto const with_fc = cost_to_label + _future_cost(label);
-        if (with_fc > _upper_cost_bound) {
-            return;
-        }
-        _heap.push(HeapEntry{with_fc, label});
+        auto const with_future_cost = cost_to_label + _future_cost(label);
+        if (with_future_cost > _upper_cost_bound) { return; }
+        _heap.push(HeapEntry{with_future_cost, label});
     }
 }
 
@@ -180,6 +177,7 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
     auto const num_subsets = (1ul << disjoint_bits) - 1ul;
     auto const& fixed_vector = _fixed_values.at(base_label.first.global_index);
     auto const num_fixed_sets = fixed_vector.size();
+    // Use the set that is faster to iterate over in practice. The threshold is purely experimental.
     if (10 * num_subsets <= num_fixed_sets) {
         // AND-ing with this mask clears the bits we don't want in our disjoint set: Bits over the number of
         // non-root terminals and bits already present in the base_set
@@ -215,6 +213,7 @@ void DijkstraSteiner<FC>::for_each_disjoint_fixed_sink_set(Label const& base_lab
 
 template<FutureCost FC>
 void DijkstraSteiner<FC>::update_lemma_15_data_for(Label const& label, Cost const label_cost) {
+    // Try to improve bound by replacing it with a single-vertex bound
     DistanceToTerminal cheapest = get_closest_terminal_in_complement(label.second);
     auto const& distances = _grid.get_distances_to_terminals(label.first.global_index);
     for_each_set_bit(
