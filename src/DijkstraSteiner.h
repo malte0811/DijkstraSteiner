@@ -75,14 +75,21 @@ private:
 
     MinHeap<HeapEntry> _heap;
     HananGrid const _grid;
+    /// The indexer used for all Subset- and LabelMaps
     SubsetIndexer _indexer;
     FC _future_cost;
+    /// For each vertex v stores all subsets and costs I and c such that (v, I) is a fixed label with cost c
     std::vector<std::vector<std::pair<TerminalSubset, Cost>>> _fixed_values;
+    /// l(v, I) at the current point of the algorithm
     LabelMap<Cost> _best_cost_bounds;
     LabelMap<bool> _fixed;
+    /// The best known set S (as described in Lemma 15) for each terminal subset I
     SubsetMap<TerminalSubset> _lemma_15_subsets;
+    /// c(H) for the subgraphs corresponding to the _lemma_15_subsets
     SubsetMap<Cost> _lemma_15_bounds;
+    /// Stores the cost of a cheapest path from a terminal in the given set to one in the complement
     SubsetMap<DistanceToTerminal> mutable _cheapest_edge_to_complement;
+    /// Global upper bound on the cost of a Steiner tree
     Cost _upper_cost_bound = 0;
 };
 

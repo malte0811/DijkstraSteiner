@@ -23,7 +23,9 @@ private:
     Cost compute_tree_cost(TerminalSubset const& not_contained_vertices) const;
 
     HananGrid const& _grid;
+    /// Stores the distances between all pairs of terminals
     std::array<SingleVertexDistances, max_num_terminals> _terminal_distances{};
+    /// Stores the known costs of MSTs on subsets of the terminal set
     SubsetMap<Cost> mutable _known_tree_costs;
 };
 
