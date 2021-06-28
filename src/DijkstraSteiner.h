@@ -126,8 +126,7 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
         if (is_fixed) { continue; }
         is_fixed = true;
         auto const cost_here = _best_cost_bounds.get_or_default(next_label);
-        auto const& lemma_15_bound = _lemma_15_bounds.get_or_default(next_label.second);
-        if (cost_here > lemma_15_bound) { continue; }
+        if (cost_here > _lemma_15_bounds.get_or_default(next_label.second)) { continue; }
         update_lemma_15_data_for(next_label, cost_here);
 
         _fixed_values.at(next_label.first.global_index).push_back({next_label.second, cost_here});
@@ -137,6 +136,8 @@ Cost DijkstraSteiner<FC>::get_optimum_cost() {
                 handle_candidate(neighbor_label, edge_cost + cost_here);
             }
         );
+        // Get this after running update_lemma_15_data_for, since that may improve the bound
+        auto const lemma_15_bound = _lemma_15_bounds.get_or_default(next_label.second);
         auto const lemma_15_set = _lemma_15_subsets.get_or_default(next_label.second);
         for_each_disjoint_fixed_sink_set(
             next_label, [&](TerminalSubset const& other_set, Cost const other_cost) {
