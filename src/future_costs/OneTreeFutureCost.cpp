@@ -64,6 +64,7 @@ Cost OneTreeFutureCost::get_tree_cost(TerminalSubset const& label) const {
     heap.push({0, terminals_to_consider.front()});
     std::array<bool, max_num_terminals> is_connected{};
     std::size_t num_connected = 0;
+    cost = 0;
     while (num_connected < terminals_to_consider.size()) {
         assert(not heap.empty());
         auto const[edge_cost, new_terminal] = heap.top();
